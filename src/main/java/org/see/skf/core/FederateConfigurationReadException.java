@@ -24,18 +24,16 @@
  If not, see http://http://www.gnu.org/licenses/
  *****************************************************************/
 
-package org.see.skf.exceptions;
+package org.see.skf.core;
 
+/**
+ * Unchecked exception thrown when there was an I/O problem while parsing a federate configuration file.
+ *
+ * @author Hridyanshu Aatreya
+ * @since 2.1
+ */
 public class FederateConfigurationReadException extends RuntimeException {
-    public FederateConfigurationReadException(String message) {
-        super(message);
-    }
-
-    public FederateConfigurationReadException(String message, Throwable t) {
-        super(message, t);
-    }
-
-    public FederateConfigurationReadException(Throwable t) {
-        super(t);
+    public FederateConfigurationReadException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

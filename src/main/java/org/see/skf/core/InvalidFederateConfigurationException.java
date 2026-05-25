@@ -24,18 +24,21 @@
  If not, see http://http://www.gnu.org/licenses/
  *****************************************************************/
 
-package org.see.skf.exceptions;
+package org.see.skf.core;
 
+/**
+ * Unchecked exception thrown when erroneous properties are detected in the federate configuration file during federate
+ * startup.
+ *
+ * @author Hridyanshu Aatreya
+ * @since 2.1
+ */
 public class InvalidFederateConfigurationException extends RuntimeException {
     public InvalidFederateConfigurationException(String message) {
         super(message);
     }
 
-    public InvalidFederateConfigurationException(String message, Throwable t) {
-        super(message, t);
-    }
-
-    public InvalidFederateConfigurationException(Throwable t) {
-        super(t);
+    public InvalidFederateConfigurationException(String message, Throwable cause) {
+        super(message);
     }
 }

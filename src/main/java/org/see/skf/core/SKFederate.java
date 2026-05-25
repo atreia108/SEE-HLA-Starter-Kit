@@ -42,6 +42,5 @@ public abstract class SKFederate {
         this.federateAmbassador = new SKFederateAmbassador();
     }
 
-
     protected abstract void configureAndStart();
 }

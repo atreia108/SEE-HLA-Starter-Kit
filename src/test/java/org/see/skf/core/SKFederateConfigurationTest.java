@@ -27,7 +27,6 @@
 package org.see.skf.core;
 
 import org.junit.jupiter.api.Test;
-import org.see.skf.exceptions.InvalidFederateConfigurationException;
 
 import java.io.*;
 import java.nio.file.Files;
