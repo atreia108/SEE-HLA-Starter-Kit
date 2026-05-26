@@ -5,7 +5,7 @@
 
  Copyright (c) 2014, 2026 SMASH Lab - University of Calabria
  (Italy), Hridyanshu Aatreya - Modelling & Simulation Group (MSG)
- at Brunel University of London. All rights reserved.
+ at Brunel University of London (UK). All rights reserved.
 
  GNU Lesser General Public License (GNU LGPL).
 
@@ -41,6 +41,4 @@ public abstract class SKFederate {
         this.config = new SKFederateConfiguration(configurationFile);
         this.federateAmbassador = new SKFederateAmbassador();
     }
-
-    protected abstract void configureAndStart();
 }
