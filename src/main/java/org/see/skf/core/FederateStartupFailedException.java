@@ -27,13 +27,14 @@
 package org.see.skf.core;
 
 /**
- * Unchecked exception thrown when there was an I/O problem while parsing a federate configuration file.
+ * Unchecked exception thrown when key processes associated with federate startup: loading configuration file and getting
+ * HLA objects i.e., the RTI ambassador and encoder factory yields problems.
  *
  * @author Hridyanshu Aatreya
  * @since 2.1
  */
-public class FederateConfigurationReadException extends RuntimeException {
-    public FederateConfigurationReadException(String message, Throwable cause) {
+class FederateStartupFailedException extends RuntimeException {
+    public FederateStartupFailedException(String message, Throwable cause) {
         super(message, cause);
     }
 }

@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-public final class SKFederateConfiguration {
+final class SKFederateConfiguration {
     private static final Logger logger = LoggerFactory.getLogger(SKFederateConfiguration.class);
 
     private static final String RTI_ADDRESS_PROPERTY = "rtiAddress";
@@ -60,7 +60,7 @@ public final class SKFederateConfiguration {
         try (FileInputStream inputStream = new FileInputStream(confFile)) {
             configProperties.load(inputStream);
         } catch (IOException e) {
-            throw new FederateConfigurationReadException("Failed to start federate due to I/O problems while attempting to read the configuration file.", e);
+            throw new FederateStartupFailedException("Failed to start due to I/O problems while attempting to read the configuration file.", e);
         }
 
         this.rtiAddress = configProperties.getProperty(RTI_ADDRESS_PROPERTY);
@@ -85,9 +85,9 @@ public final class SKFederateConfiguration {
         // The checks performed in the method below is purely intended to inform users that certain properties carried
         // over from v1 have been deprecated and their presence in the config file is redundant. It is anticipated that
         // users will follow these instructions and there won't be a point in keeping this around post-v2.1.
-        warnDeprecatedProperties(configProperties);
+        warnAboutDeprecatedProperties(configProperties);
 
-        logger.debug("Finished loading configuration properties for the federate <{}>.", federateName);
+        logger.debug("Finished loading configuration properties for <{}>.", federateName);
     }
 
     private String[] loadFomModules(String path) {
@@ -129,21 +129,17 @@ public final class SKFederateConfiguration {
         }
     }
 
-    private void warnDeprecatedProperties(Properties properties) {
-        final String DEPRECATED_FEDERATE_ROLE_PROPERTY = properties.getProperty("federateRole");
-        final String DEPRECATED_ASYNC_DELIVERY_PROPERTY = properties.getProperty("asynchronousDelivery");
-        final String DEPRECATED_TIME_REGULATING_PROPERTY = properties.getProperty("timeRegulating");
-        final String DEPRECATED_TIME_CONSTRAINED_PROPERTY = properties.getProperty("timeConstrained");
-
+    private void warnAboutDeprecatedProperties(Properties properties) {
         final String[] deprecatedProperties = new String[] {
-                DEPRECATED_FEDERATE_ROLE_PROPERTY,
-                DEPRECATED_ASYNC_DELIVERY_PROPERTY,
-                DEPRECATED_TIME_REGULATING_PROPERTY,
-                DEPRECATED_TIME_CONSTRAINED_PROPERTY
+                "federateRole",
+                "asynchronousDelivery",
+                "timeRegulating",
+                "timeConstrained"
         };
 
         for (String property : deprecatedProperties) {
-            if (property != null) {
+            String value = properties.getProperty(property);
+            if (value != null) {
                 logger.warn("Remove useless property definition <{}> that was deprecated in v2.1 from configuration file.", property);
             }
         }

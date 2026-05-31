@@ -30,6 +30,6 @@ import hla.rti1516_2025.NullFederateAmbassador;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SKFederateAmbassador extends NullFederateAmbassador {
+final class SKFederateAmbassador extends NullFederateAmbassador {
     private static final Logger logger = LoggerFactory.getLogger(SKFederateAmbassador.class);
 }
