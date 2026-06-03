@@ -39,19 +39,26 @@ import java.io.File;
 public abstract class SKFederate {
     private static final Logger logger = LoggerFactory.getLogger(SKFederate.class);
 
-    private final SKFederateConfiguration config;
     private final RtiConfiguration rtiConfiguration;
-    private final SKFederateAmbassador federateAmbassador;
-
     private final RTIambassador rtiAmbassador;
 
+    private String federateName;
+    private final String federateType;
+    private final String federationName;
+    private final String[] additionalFomModules;
+    private final SKFederateAmbassador federateAmbassador;
+
     protected SKFederate(File configurationFile) {
-        this.config = new SKFederateConfiguration(configurationFile);
+        SKFederateConfiguration config = new SKFederateConfiguration(configurationFile);
+        federateName = config.federateName();
+        federateType = config.federateType();
+        federationName = config.federationName();
+        additionalFomModules = config.additionalFomModules();
+
         this.rtiConfiguration = RtiConfiguration.createConfiguration()
                 .withRtiAddress(config.rtiAddress());
-
-        this.federateAmbassador = new SKFederateAmbassador();
         this.rtiAmbassador = SKUtilityFactory.INSTANCE.getRTIambassador();
+        this.federateAmbassador = new SKFederateAmbassador();
     }
 
     /**
@@ -68,7 +75,7 @@ public abstract class SKFederate {
             // No exception needs to be thrown for this since it does not qualify as an "un-ideal" scenario.
         } catch (Unauthorized | ConnectionFailed | UnsupportedCallbackModel | CallNotAllowedFromWithinCallback |
                  RTIinternalError e) {
-            throw new FederateStartupFailedException("Failed to establish connection to the RTI hosted at <" + rtiAddress + ">.", e);
+            throw new FederateStartupFailureException("Failed to establish connection to the RTI hosted at <" + rtiAddress + ">.", e);
         }
     }
 
@@ -77,59 +84,66 @@ public abstract class SKFederate {
      *
      */
     public final void joinFederationExecution() {
-        String federateName = config.federateName();
-        String federateType = config.federateType();
-        String federationName = config.federationName();
-        String[] fomModules = config.additionalFomModules();
-
-        boolean joined = false;
+        String originalFederateName = federateName;
         String federateNameSuffix = "";
+        boolean joined = false;
         int attempts = 1;
 
         // TODO - Consider if an upper bound should be placed on the number of attempts the federate will entertain for joining a federation execution.
         while (!joined) {
             try {
-                if (fomModules.length > 0) {
-                    rtiAmbassador.joinFederationExecution(federateName + federateNameSuffix, federateType, federationName, fomModules);
-                } else {
-                    rtiAmbassador.joinFederationExecution(federateName + federateNameSuffix, federateType, federationName);
-                }
-
-                joined = true;
+                attemptJoin();
 
                 if (attempts > 1) {
-                    logger.warn("The name <{}> is already taken by another federate. Adopting <{}{}> as name instead.", config.federateName(), federateName, federateNameSuffix);
+                    logger.warn("The name <{}> was already taken by another federate. Assuming the name <{}> instead.", originalFederateName, federateName);
                 }
 
                 logger.info("Joined the federation execution <{}>.", federationName);
+                joined = true;
             } catch (FederateNameAlreadyInUse e) {
                 // Attempt to join again with an incremented suffix at the end of the federate name.
-                federateNameSuffix = "_" + attempts++;
+                federateName = originalFederateName + federateNameSuffix + "_" + attempts++;
             } catch (FederationExecutionDoesNotExist e) {
-                throw new FederateStartupFailedException("The federation execution <" + federationName + "> does not exist.", e);
+                throw new FederateStartupFailureException("The federation execution <" + federationName + "> does not exist.", e);
             } catch (InvalidFOM | ErrorReadingFOM | CouldNotOpenFOM | InconsistentFOM e) {
-                throw new FederateStartupFailedException("Failed to join the federation execution <" + federationName + "> due to problems with parsing the supplied FOM modules.", e);
+                throw new FederateStartupFailureException("Failed to join the federation execution <" + federationName + "> due to problems with parsing the supplied FOM modules.", e);
             } catch (FederateAlreadyExecutionMember e) {
-                // IGNORE: Since the federate is already a part of the federation execution, there's no actual problem here.
+                logger.warn("<{}> is already a member of the federation execution <{}>.", federateName, federationName);
             } catch (CouldNotCreateLogicalTimeFactory | SaveInProgress | RestoreInProgress | Unauthorized |
                      NotConnected | CallNotAllowedFromWithinCallback | RTIinternalError e) {
-                throw new FederateStartupFailedException("Failed to join the federation execution <" + federationName + ">.", e);
+                throw new FederateStartupFailureException("Failed to join the federation execution <" + federationName + ">.", e);
             }
         }
     }
 
-    public final void resignFromFederationExecution() throws FederateShutdownAbortedException {
+    private void attemptJoin() throws CouldNotOpenFOM, NotConnected, InvalidFOM, RTIinternalError, ErrorReadingFOM, CouldNotCreateLogicalTimeFactory, FederateNameAlreadyInUse, RestoreInProgress, CallNotAllowedFromWithinCallback, InconsistentFOM, FederationExecutionDoesNotExist, Unauthorized, FederateAlreadyExecutionMember, SaveInProgress {
+        if (additionalFomModules.length > 0) {
+            rtiAmbassador.joinFederationExecution(federateName, federateType, federationName, additionalFomModules);
+        } else {
+            rtiAmbassador.joinFederationExecution(federateName, federateType, federationName);
+        }
+    }
+
+    public final void shutdown() throws FederateShutdownAbortedException {
         try {
             rtiAmbassador.resignFederationExecution(ResignAction.DELETE_OBJECTS_THEN_DIVEST);
         } catch (OwnershipAcquisitionPending | FederateOwnsAttributes e) {
-            throw new FederateShutdownAbortedException("Attempt to shut down federate was aborted due to ongoing processes that are yet unfulfilled.", e);
+            throw new FederateShutdownAbortedException("Federate shutdown attempt was aborted due to ongoing processes that are yet to be fulfilled.", e);
         } catch (FederateNotExecutionMember | NotConnected | CallNotAllowedFromWithinCallback | InvalidResignAction |
                  RTIinternalError e) {
-            throw new FederateShutdownFailedException("Failed to shut down federate.", e);
+            throw new FederateShutdownFailureException("Failed to shut down federate.", e);
         }
     }
 
     RTIambassador getRTIAmbassador() {
         return rtiAmbassador;
+    }
+
+    public String getName() {
+        return federateName;
+    }
+
+    public String getDesignatedType() {
+        return federateType;
     }
 }

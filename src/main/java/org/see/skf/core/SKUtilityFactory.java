@@ -20,18 +20,15 @@ enum SKUtilityFactory {
         try {
             RtiFactory rtiFactory = RtiFactoryFactory.getRtiFactory();
             Logger logger = LoggerFactory.getLogger(SKUtilityFactory.class);
-            logger.debug("Initialized RtiFactory instance.");
             rtiAmbassador = rtiFactory.getRtiAmbassador();
-            logger.debug("Initialized RTIAmbassador instance.");
             encoderFactory = rtiFactory.getEncoderFactory();
-            logger.debug("Initialized EncoderFactory instance.");
 
             String rtiName = rtiFactory.rtiName();
             String rtiVersion = rtiFactory.rtiVersion();
             String hlaStandard = rtiAmbassador.getHLAversion();
             logger.info("SEE HLA Starter Kit Version {}. RTI: {} {}. HLA Standard: {}", FRAMEWORK_VERSION, rtiName, rtiVersion, hlaStandard);
         } catch (RTIinternalError e) {
-            throw new FederateStartupFailedException("Failed to initialize one or more HLA utility objects for use by the federate.", e);
+            throw new FederateStartupFailureException("Failed to initialize one or more HLA utility objects for use by the federate.", e);
         }
     }
 
@@ -39,7 +36,7 @@ enum SKUtilityFactory {
         return rtiAmbassador;
     }
 
-    public EncoderFactory getEncoderFactory() {
+    EncoderFactory getEncoderFactory() {
         return encoderFactory;
     }
 }
