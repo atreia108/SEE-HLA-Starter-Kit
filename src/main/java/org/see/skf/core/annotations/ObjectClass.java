@@ -24,7 +24,7 @@
  If not, see http://http://www.gnu.org/licenses/
  *****************************************************************/
 
-package org.see.skf.runtime;
+package org.see.skf.core.annotations;
 
 import java.lang.annotation.*;
 
@@ -52,20 +52,4 @@ public @interface ObjectClass {
      * @return The HLA object class name.
      */
     String name();
-
-    /**
-     * The attribute of this HLA object class (corresponding to the FOM) that should be declared as publishable to the
-     * RTI.
-     *
-     * @return The attributes of the HLA object class that will be published.
-     */
-    String[] publishableAttributes() default {};
-
-    /**
-     * The attributes of this HLA object class (corresponding to the FOM) that should be declared as subscribable to
-     * the RTI.
-     *
-     * @return The attributes of the HLA object class that will be subscribed.
-     */
-    String[] subscribableAttributes() default {};
 }

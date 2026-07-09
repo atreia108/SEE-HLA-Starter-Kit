@@ -31,10 +31,12 @@ import hla.rti1516_2025.RTIambassador;
 import hla.rti1516_2025.ResignAction;
 import hla.rti1516_2025.RtiConfiguration;
 import hla.rti1516_2025.exceptions.*;
+import org.see.skf.runtime.HLAClassManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.Set;
 
 public abstract class SKFederate {
     private static final Logger logger = LoggerFactory.getLogger(SKFederate.class);
@@ -48,34 +50,50 @@ public abstract class SKFederate {
     private final String[] additionalFomModules;
     private final SKFederateAmbassador federateAmbassador;
 
+    private final HLAClassManager classManager;
+    // private final SimulationTime simTime;
+
     protected SKFederate(File configurationFile) {
         SKFederateConfiguration config = new SKFederateConfiguration(configurationFile);
-        federateName = config.federateName();
-        federateType = config.federateType();
-        federationName = config.federationName();
-        additionalFomModules = config.additionalFomModules();
+        this.federateName = config.federateName();
+        this.federateType = config.federateType();
+        this.federationName = config.federationName();
+        this.additionalFomModules = config.additionalFomModules();
 
-        this.rtiConfiguration = RtiConfiguration.createConfiguration()
+        this.rtiConfiguration
+                = RtiConfiguration.createConfiguration()
                 .withRtiAddress(config.rtiAddress());
-        this.rtiAmbassador = SKUtilityFactory.INSTANCE.getRTIambassador();
+        this.rtiAmbassador = SKUtilityFactory.INSTANCE.getRtiAmbassador();
         this.federateAmbassador = new SKFederateAmbassador();
+        this.classManager = new HLAClassManager();
+
+        connectToRTI();
+        joinFederationExecution();
+
+        // Lazy initialization of simTime with just the lookAhead parameter. Federation-specific values will follow later
+        // once the values of the ExCO object instance are retrieved.
+        // long lookAhead = config.lookahead();
+        // this.simTime = new SimulationTime(lookAhead);
+
+        configureAndStart();
     }
 
     /**
      * TODO
      *
      */
-    public final void connectToRTI() {
+    private void connectToRTI() {
         String rtiAddress = rtiConfiguration.rtiAddress();
 
         try {
             rtiAmbassador.connect(federateAmbassador, CallbackModel.HLA_IMMEDIATE, rtiConfiguration);
             logger.info("Established connection to RTI hosted at <{}>.", rtiAddress);
         } catch (AlreadyConnected ignore) {
-            // No exception needs to be thrown for this since it does not qualify as an "un-ideal" scenario.
-        } catch (Unauthorized | ConnectionFailed | UnsupportedCallbackModel | CallNotAllowedFromWithinCallback |
+            logger.warn("<{}> is already connected to the RTI hosted at <{}>.", federateName, rtiAddress);
+        }
+        catch (Unauthorized | ConnectionFailed | UnsupportedCallbackModel | CallNotAllowedFromWithinCallback |
                  RTIinternalError e) {
-            throw new FederateStartupFailureException("Failed to establish connection to the RTI hosted at <" + rtiAddress + ">.", e);
+            throw new FederateStartupException("Failed to establish connection to the RTI hosted at <" + rtiAddress + ">.", e);
         }
     }
 
@@ -83,9 +101,9 @@ public abstract class SKFederate {
      * TODO
      *
      */
-    public final void joinFederationExecution() {
+    private void joinFederationExecution() {
         String originalFederateName = federateName;
-        String federateNameSuffix = "";
+        String suffix = "";
         boolean joined = false;
         int attempts = 1;
 
@@ -102,16 +120,16 @@ public abstract class SKFederate {
                 joined = true;
             } catch (FederateNameAlreadyInUse e) {
                 // Attempt to join again with an incremented suffix at the end of the federate name.
-                federateName = originalFederateName + federateNameSuffix + "_" + attempts++;
-            } catch (FederationExecutionDoesNotExist e) {
-                throw new FederateStartupFailureException("The federation execution <" + federationName + "> does not exist.", e);
-            } catch (InvalidFOM | ErrorReadingFOM | CouldNotOpenFOM | InconsistentFOM e) {
-                throw new FederateStartupFailureException("Failed to join the federation execution <" + federationName + "> due to problems with parsing the supplied FOM modules.", e);
-            } catch (FederateAlreadyExecutionMember e) {
+                federateName = originalFederateName + suffix + "_" + attempts++;
+            } catch(FederateAlreadyExecutionMember ignore) {
                 logger.warn("<{}> is already a member of the federation execution <{}>.", federateName, federationName);
+            } catch (FederationExecutionDoesNotExist e) {
+                throw new FederateStartupException("The federation execution <" + federationName + "> does not exist.", e);
+            } catch (InvalidFOM | ErrorReadingFOM | CouldNotOpenFOM | InconsistentFOM e) {
+                throw new FederateStartupException("Failed to join the federation execution <" + federationName + "> due to problems with parsing the supplied FOM modules.", e);
             } catch (CouldNotCreateLogicalTimeFactory | SaveInProgress | RestoreInProgress | Unauthorized |
                      NotConnected | CallNotAllowedFromWithinCallback | RTIinternalError e) {
-                throw new FederateStartupFailureException("Failed to join the federation execution <" + federationName + ">.", e);
+                throw new FederateStartupException("Failed to join the federation execution <" + federationName + ">.", e);
             }
         }
     }
@@ -124,26 +142,81 @@ public abstract class SKFederate {
         }
     }
 
-    public final void shutdown() throws FederateShutdownAbortedException {
+    public final void shutdownExecution() throws FederateShutdownInterruptedException {
         try {
             rtiAmbassador.resignFederationExecution(ResignAction.DELETE_OBJECTS_THEN_DIVEST);
         } catch (OwnershipAcquisitionPending | FederateOwnsAttributes e) {
-            throw new FederateShutdownAbortedException("Federate shutdown attempt was aborted due to ongoing processes that are yet to be fulfilled.", e);
+            throw new FederateShutdownInterruptedException("Federate shutdown attempt was interrupted by ongoing processes that are yet to be completed.", e);
         } catch (FederateNotExecutionMember | NotConnected | CallNotAllowedFromWithinCallback | InvalidResignAction |
                  RTIinternalError e) {
-            throw new FederateShutdownFailureException("Failed to shut down federate.", e);
+            throw new FederateShutdownFailedException("Failed to shutdown federate.", e);
         }
     }
 
-    RTIambassador getRTIAmbassador() {
-        return rtiAmbassador;
+    public final void publishObjectClass(String className, String... attributes) {
+        // TODO
     }
 
-    public String getName() {
+    public final void unpublishObjectClass(String className, String... attributes) {
+        // TODO
+    }
+
+    public final void subscribeObjectClass(String className, String... attributes) {
+        // TODO
+    }
+
+    public final void unsubscribeObjectClass(String className, String... attributes) {
+        // TODO
+    }
+
+    public final void createObjectInstance(Object objectInstance) {
+        // TODO
+    }
+
+    public final void updateObjectInstance(Object objectInstance, String... attributes) {
+        // TODO
+    }
+
+    public final void destroyObjectInstance(Object objectInstance) {
+        // TODO
+    }
+
+    public final void setupTimeManagement() {
+        // TODO - Enable time regulation and constraint for messages, then compute and advance to HLTB.
+        // simTime.regulateTime();
+        // simTime.constrainTime();
+    }
+
+    // TODO - Object instance creation w/o name.
+    public void createObjectInstance() {
+
+    }
+
+    // TODO - Object instance creation w/ name.
+    public void createObjectInstance(String name) {
+
+    }
+
+    // TODO - Object instance deletion.
+    public void destroyObjectInstance() {
+
+    }
+
+    public abstract void configureAndStart();
+
+    protected abstract void update();
+
+    public final String getName() {
         return federateName;
     }
 
-    public String getDesignatedType() {
+    public final String getType() {
         return federateType;
+    }
+
+    // TODO - Returns the latest sim time in TJD.
+    public final synchronized double getSimulationTime() {
+        // return simTime.getTJDTime();
+        return 0.0;
     }
 }

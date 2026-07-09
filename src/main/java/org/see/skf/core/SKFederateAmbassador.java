@@ -26,10 +26,69 @@
 
 package org.see.skf.core;
 
-import hla.rti1516_2025.NullFederateAmbassador;
+import hla.rti1516_2025.*;
+import hla.rti1516_2025.exceptions.FederateInternalError;
+import hla.rti1516_2025.time.LogicalTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
+
 final class SKFederateAmbassador extends NullFederateAmbassador {
     private static final Logger logger = LoggerFactory.getLogger(SKFederateAmbassador.class);
+
+    private final Set<ObjectInstanceListener> objectInstanceListeners;
+    private final Set<InteractionListener> interactionListeners;
+
+    SKFederateAmbassador() {
+        this.objectInstanceListeners = new CopyOnWriteArraySet<>();
+        this.interactionListeners = new CopyOnWriteArraySet<>();
+    }
+
+    @Override
+    public void discoverObjectInstance(ObjectInstanceHandle objectInstance, ObjectClassHandle objectClass, String objectInstanceName, FederateHandle producingFederate) throws FederateInternalError {
+
+    }
+
+    @Override
+    public void reflectAttributeValues(ObjectInstanceHandle objectInstance, AttributeHandleValueMap attributeValues, byte[] userSuppliedTag, TransportationTypeHandle transportationType, FederateHandle producingFederate, RegionHandleSet optionalSentRegions) throws FederateInternalError {
+
+    }
+
+    @Override
+    public void reflectAttributeValues(ObjectInstanceHandle objectInstance, AttributeHandleValueMap attributeValues, byte[] userSuppliedTag, TransportationTypeHandle transportationType, FederateHandle producingFederate, RegionHandleSet optionalSentRegions, LogicalTime<?, ?> time, OrderType sentOrderType, OrderType receivedOrderType, MessageRetractionHandle optionalRetraction) throws FederateInternalError {
+
+    }
+
+    @Override
+    public void provideAttributeValueUpdate(ObjectInstanceHandle objectInstance, AttributeHandleSet attributes, byte[] userSuppliedTag) throws FederateInternalError {
+
+    }
+
+    @Override
+    public void receiveInteraction(InteractionClassHandle interactionClass, ParameterHandleValueMap parameterValues, byte[] userSuppliedTag, TransportationTypeHandle transportationType, FederateHandle producingFederate, RegionHandleSet optionalSentRegions) throws FederateInternalError {
+
+    }
+
+    @Override
+    public void receiveInteraction(InteractionClassHandle interactionClass, ParameterHandleValueMap parameterValues, byte[] userSuppliedTag, TransportationTypeHandle transportationType, FederateHandle producingFederate, RegionHandleSet optionalSentRegions, LogicalTime<?, ?> time, OrderType sentOrderType, OrderType receivedOrderType, MessageRetractionHandle optionalRetraction) throws FederateInternalError {
+
+    }
+
+    void addInteractionListener(InteractionListener listener) {
+        this.interactionListeners.add(listener);
+    }
+
+    void removeInteractionListener(InteractionListener listener) {
+        this.interactionListeners.remove(listener);
+    }
+
+    void addObjectInstanceListener(ObjectInstanceListener listener) {
+        this.objectInstanceListeners.add(listener);
+    }
+
+    void removeObjectInstanceListener(ObjectInstanceListener listener) {
+        this.objectInstanceListeners.remove(listener);
+    }
 }

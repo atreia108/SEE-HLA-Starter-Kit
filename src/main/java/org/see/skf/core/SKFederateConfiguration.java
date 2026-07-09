@@ -60,7 +60,7 @@ final class SKFederateConfiguration {
         try (FileInputStream inputStream = new FileInputStream(confFile)) {
             configProperties.load(inputStream);
         } catch (IOException e) {
-            throw new FederateStartupFailureException("Failed to start due to I/O problems while attempting to read the configuration file.", e);
+            throw new FederateStartupException("Failed to start due to I/O problems while attempting to read the configuration file.", e);
         }
 
         this.rtiAddress = configProperties.getProperty(RTI_ADDRESS_PROPERTY);

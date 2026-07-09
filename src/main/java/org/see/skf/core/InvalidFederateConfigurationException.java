@@ -33,12 +33,12 @@ package org.see.skf.core;
  * @author Hridyanshu Aatreya
  * @since 2.1
  */
-class InvalidFederateConfigurationException extends RuntimeException {
-    public InvalidFederateConfigurationException(String message) {
+final class InvalidFederateConfigurationException extends RuntimeException {
+    InvalidFederateConfigurationException(String message) {
         super(message);
     }
 
-    public InvalidFederateConfigurationException(String message, Throwable cause) {
+    InvalidFederateConfigurationException(String message, Throwable cause) {
         super(message);
     }
 }

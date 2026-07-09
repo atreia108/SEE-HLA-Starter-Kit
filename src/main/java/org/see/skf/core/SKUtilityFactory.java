@@ -8,7 +8,7 @@ import hla.rti1516_2025.exceptions.RTIinternalError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-enum SKUtilityFactory {
+public enum SKUtilityFactory {
     INSTANCE;
 
     private static final String FRAMEWORK_VERSION = "2.1.0";
@@ -26,17 +26,18 @@ enum SKUtilityFactory {
             String rtiName = rtiFactory.rtiName();
             String rtiVersion = rtiFactory.rtiVersion();
             String hlaStandard = rtiAmbassador.getHLAversion();
-            logger.info("SEE HLA Starter Kit Version {}. RTI: {} {}. HLA Standard: {}", FRAMEWORK_VERSION, rtiName, rtiVersion, hlaStandard);
+            String jreVersion = System.getProperty("java.version");
+            logger.info("SEE HLA Starter Kit Version {}. RTI: {} {}. HLA Standard: {}. JRE: {}", FRAMEWORK_VERSION, rtiName, rtiVersion, hlaStandard, jreVersion);
         } catch (RTIinternalError e) {
-            throw new FederateStartupFailureException("Failed to initialize one or more HLA utility objects for use by the federate.", e);
+            throw new FederateStartupException("Failed to initialize one or more HLA utility objects for use by the federate.", e);
         }
     }
 
-    RTIambassador getRTIambassador() {
+    public RTIambassador getRtiAmbassador() {
         return rtiAmbassador;
     }
 
-    EncoderFactory getEncoderFactory() {
+    public EncoderFactory getEncoderFactory() {
         return encoderFactory;
     }
 }

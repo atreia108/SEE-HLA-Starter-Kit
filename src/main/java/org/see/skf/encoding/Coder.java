@@ -1,4 +1,4 @@
-package org.see.skf.runtime;
+package org.see.skf.encoding;
 
 public interface Coder<T> {
     void encode(T data);

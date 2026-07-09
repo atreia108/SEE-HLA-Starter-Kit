@@ -1,4 +1,4 @@
-package org.see.skf.runtime;
+package org.see.skf.core.annotations;
 
 import java.lang.annotation.*;
 
@@ -13,4 +13,5 @@ import java.lang.annotation.*;
 @Target(ElementType.TYPE)
 @Inherited
 public @interface InteractionClass {
+    String name();
 }
