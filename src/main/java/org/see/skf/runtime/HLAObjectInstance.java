@@ -5,6 +5,7 @@ import hla.rti1516_2025.RTIambassador;
 import hla.rti1516_2025.exceptions.FederateNotExecutionMember;
 import hla.rti1516_2025.exceptions.NotConnected;
 import org.see.skf.core.SKUtilityFactory;
+import org.see.skf.encoding.Coder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,15 +16,13 @@ public final class HLAObjectInstance {
     private final Logger logger = LoggerFactory.getLogger(HLAObjectInstance.class);
     private final RTIambassador rtiAmbassador;
 
-    private String name;
     private final HLAObjectClass objectClass;
     private final Object instance;
     private final Set<HLAObjectClassAttribute> attributes;
     private final Set<HLAObjectClassAttribute> ownedAttributes;
     private final AttributeHandleValueMap handleValueMap;
 
-    // TODO - ACCOUNT FOR NAME RESERVATION.
-    public HLAObjectInstance(HLAObjectClass objectClass, Object instance, String name) {
+    public HLAObjectInstance(HLAObjectClass objectClass, Set<Coder<?>> coders, Object instance) {
         this.rtiAmbassador = SKUtilityFactory.INSTANCE.getRtiAmbassador();
         this.instance = instance;
         this.objectClass = objectClass;
@@ -34,10 +33,25 @@ public final class HLAObjectInstance {
             this.handleValueMap = rtiAmbassador.getAttributeHandleValueMapFactory().create(attributeCount);
         } catch (FederateNotExecutionMember | NotConnected e) {
             String className = objectClass.getName();
-            throw new RtiHandleRetrievalException("Could not create AttributeHandleValueMap for <" + className + ">.", e);
+            throw new RtiHandleRetrievalException("Cannot not create AttributeHandleValueMap for an instance of the object class <" + className + ">.", e);
         }
 
         this.ownedAttributes = new CopyOnWriteArraySet<>();
+
+        registerAtRti();
+    }
+
+    private void registerAtRti() {
+
+        
+    }
+
+    private void reserveName() {
+        if (!this.name.isEmpty() && !this.name.isBlank()) {
+
+        } else {
+            throw new ObjectInstanceCreationException("Whitespaces or empty string cannot be used to reserve the name of an object instance.");
+        }
     }
 
     public void decode() {

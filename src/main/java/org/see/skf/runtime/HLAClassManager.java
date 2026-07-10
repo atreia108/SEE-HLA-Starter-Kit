@@ -21,35 +21,35 @@ public final class HLAClassManager {
         this.interactionClasses = new CopyOnWriteArraySet<>();
     }
 
-    public void publishObjectClass(ObjectClass objectClass, String... attributes) {
+    public void publishObjectClass(String name, String... attributes) {
 
     }
 
-    public void unpublishObjectClass(ObjectClass objectClass, String... attributes) {
+    public void unpublishObjectClass(String name, String... attributes) {
 
     }
 
-    public void subscribeObjectClass(ObjectClass objectClass, String... attributes) {
+    public void subscribeObjectClass(String name, String... attributes) {
 
     }
 
-    public void unsubscribeObjectClass(ObjectClass objectClass, String... attributes) {
+    public void unsubscribeObjectClass(String name, String... attributes) {
 
     }
 
-    public void publishInteractionClass(InteractionClass interactionClass) {
+    public void publishInteractionClass(String name) {
 
     }
 
-    public void unpublishInteractionClass(InteractionClass interactionClass) {
+    public void unpublishInteractionClass(String name) {
 
     }
 
-    public void subscribeInteractionClass(InteractionClass interactionClass) {
+    public void subscribeInteractionClass(String name) {
 
     }
 
-    public void unsubscribeInteractionClass(InteractionClass interactionClass) {
+    public void unsubscribeInteractionClass(String name) {
 
     }
 
