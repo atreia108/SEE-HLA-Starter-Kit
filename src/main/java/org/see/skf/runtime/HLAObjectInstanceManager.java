@@ -13,12 +13,14 @@ public final class HLAObjectInstanceManager {
 
     private final Set<HLAObjectInstance> objectInstances;
     private final Map<String, HLAObjectInstance> nameToObjectInstance;
+    private final Map<HLAObjectInstance, String> objectInstanceToName;
 
     public HLAObjectInstanceManager() {
         this.rtiAmbassador = SKUtilityFactory.INSTANCE.getRtiAmbassador();
 
         this.objectInstances = new CopyOnWriteArraySet<>();
         this.nameToObjectInstance = new ConcurrentHashMap<>();
+        this.objectInstanceToName = new ConcurrentHashMap<>();
     }
 
     // Name reservation occurs automatically in this step should there be a non-null argument for name.
@@ -27,7 +29,7 @@ public final class HLAObjectInstanceManager {
             reserveName(name);
         }
 
-
+        // TODO - Object instance creation logic.
     }
 
     // TODO - Add an option to relinquish name reservation upon deletion.
@@ -42,6 +44,14 @@ public final class HLAObjectInstanceManager {
 
     public void updateObjectInstance(Object object, String... attributes) {
 
+    }
+
+    public void addDiscoveredObjectInstance(HLAObjectInstance objectInstance) {
+        this.objectInstances.add(objectInstance);
+    }
+
+    public void removeDiscoveredObjectInstance(HLAObjectInstance objectInstance) {
+        this.objectInstances.remove(objectInstance);
     }
 
     public void reserveName(String name) {

@@ -32,6 +32,7 @@ import hla.rti1516_2025.ResignAction;
 import hla.rti1516_2025.RtiConfiguration;
 import hla.rti1516_2025.exceptions.*;
 import org.see.skf.runtime.HLAClassManager;
+import org.see.skf.runtime.HLAObjectInstanceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,6 +52,7 @@ public abstract class SKFederate {
     private final SKFederateAmbassador federateAmbassador;
 
     private final HLAClassManager classManager;
+    private final HLAObjectInstanceManager instanceManager;
     // private final SimulationTime simTime;
 
     protected SKFederate(File configurationFile) {
@@ -64,8 +66,10 @@ public abstract class SKFederate {
                 = RtiConfiguration.createConfiguration()
                 .withRtiAddress(config.rtiAddress());
         this.rtiAmbassador = SKUtilityFactory.INSTANCE.getRtiAmbassador();
-        this.federateAmbassador = new SKFederateAmbassador();
+
         this.classManager = new HLAClassManager();
+        this.instanceManager = new HLAObjectInstanceManager();
+        this.federateAmbassador = new SKFederateAmbassador(classManager, instanceManager);
 
         connectToRTI();
         joinFederationExecution();

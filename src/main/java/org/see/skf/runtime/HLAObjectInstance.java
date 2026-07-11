@@ -47,11 +47,13 @@ public final class HLAObjectInstance {
     }
 
     private void reserveName() {
+        /*
         if (!this.name.isEmpty() && !this.name.isBlank()) {
 
         } else {
             throw new ObjectInstanceCreationException("Whitespaces or empty string cannot be used to reserve the name of an object instance.");
         }
+         */
     }
 
     public void decode() {

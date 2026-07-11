@@ -29,6 +29,10 @@ package org.see.skf.core;
 import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.FederateInternalError;
 import hla.rti1516_2025.time.LogicalTime;
+import org.see.skf.runtime.HLAClassManager;
+import org.see.skf.runtime.HLAObjectInstance;
+import org.see.skf.runtime.HLAObjectInstanceManager;
+import org.see.skf.runtime.SKAnnotatedTypeParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,10 +42,18 @@ import java.util.concurrent.CopyOnWriteArraySet;
 final class SKFederateAmbassador extends NullFederateAmbassador {
     private static final Logger logger = LoggerFactory.getLogger(SKFederateAmbassador.class);
 
+    private final HLAClassManager classManager;
+    private final HLAObjectInstanceManager objectInstanceManager;
+
+    private final SKAnnotatedTypeParser annotatedTypeParser;
     private final Set<ObjectInstanceListener> objectInstanceListeners;
     private final Set<InteractionListener> interactionListeners;
 
-    SKFederateAmbassador() {
+    SKFederateAmbassador(HLAClassManager classManager, HLAObjectInstanceManager objectInstanceManager) {
+        this.classManager = classManager;
+        this.objectInstanceManager = objectInstanceManager;
+
+        this.annotatedTypeParser = new SKAnnotatedTypeParser();
         this.objectInstanceListeners = new CopyOnWriteArraySet<>();
         this.interactionListeners = new CopyOnWriteArraySet<>();
     }
