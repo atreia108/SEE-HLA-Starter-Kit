@@ -1,9 +1,8 @@
 package org.see.skf.runtime;
 
 import hla.rti1516_2025.RTIambassador;
+import hla.rti1516_2025.exceptions.*;
 import org.see.skf.core.SKUtilityFactory;
-import org.see.skf.core.annotations.InteractionClass;
-import org.see.skf.core.annotations.ObjectClass;
 
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -21,8 +20,18 @@ public final class HLAClassManager {
         this.interactionClasses = new CopyOnWriteArraySet<>();
     }
 
-    public void publishObjectClass(String name, String... attributes) {
+    public void publishObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, NotConnected, AttributeNotDefined, ObjectClassNotDefined, RestoreInProgress, RTIinternalError, SaveInProgress {
+        if (attributeNames.length < 1) {
+            throw new IllegalArgumentException("At least one attribute is required to publish the object class <" + name + ">.");
+        }
 
+        HLAObjectClass objectClass;
+        if ((objectClass = getObjectClass(name)) == null) {
+            objectClass = new HLAObjectClass(name);
+            this.objectClasses.add(objectClass);
+        }
+
+        objectClass.publish(attributeNames);
     }
 
     public void unpublishObjectClass(String name, String... attributes) {

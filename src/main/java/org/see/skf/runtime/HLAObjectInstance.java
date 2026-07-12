@@ -18,25 +18,26 @@ public final class HLAObjectInstance {
 
     private final HLAObjectClass objectClass;
     private final Object instance;
-    private final Set<HLAObjectClassAttribute> attributes;
-    private final Set<HLAObjectClassAttribute> ownedAttributes;
-    private final AttributeHandleValueMap handleValueMap;
+    // private final Set<HLAObjectClassAttribute> attributes;
+    // private final Set<HLAObjectClassAttribute> ownedAttributes;
+    // private final AttributeHandleValueMap handleValueMap;
 
     public HLAObjectInstance(HLAObjectClass objectClass, Set<Coder<?>> coders, Object instance) {
         this.rtiAmbassador = SKUtilityFactory.INSTANCE.getRtiAmbassador();
         this.instance = instance;
         this.objectClass = objectClass;
-        this.attributes = objectClass.getAttributes();
+        // this.attributes = objectClass.getAttributes();
 
+        /*
         try {
-            int attributeCount = attributes.size();
-            this.handleValueMap = rtiAmbassador.getAttributeHandleValueMapFactory().create(attributeCount);
+            // int attributeCount = attributes.size();
+            // this.handleValueMap = rtiAmbassador.getAttributeHandleValueMapFactory().create(attributeCount);
         } catch (FederateNotExecutionMember | NotConnected e) {
             String className = objectClass.getName();
             throw new RtiHandleRetrievalException("Cannot not create AttributeHandleValueMap for an instance of the object class <" + className + ">.", e);
         }
-
-        this.ownedAttributes = new CopyOnWriteArraySet<>();
+         */
+        // this.ownedAttributes = new CopyOnWriteArraySet<>();
 
         registerAtRti();
     }

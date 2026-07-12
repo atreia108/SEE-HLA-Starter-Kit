@@ -157,8 +157,13 @@ public abstract class SKFederate {
         }
     }
 
-    public final void publishObjectClass(String className, String... attributes) {
-        // TODO
+    public final void publishObjectClass(String className, String... attributes) throws PublishException {
+        try {
+            this.classManager.publishObjectClass(className, attributes);
+        } catch (FederateNotExecutionMember | NotConnected | AttributeNotDefined | ObjectClassNotDefined |
+                 RestoreInProgress | RTIinternalError | SaveInProgress e) {
+            throw new PublishException("Unable to publish the object class <" + className + ">.", e);
+        }
     }
 
     public final void unpublishObjectClass(String className, String... attributes) {
