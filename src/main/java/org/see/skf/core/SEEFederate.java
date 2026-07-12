@@ -5,22 +5,20 @@ import java.util.Arrays;
 import java.util.List;
 
 public abstract class SEEFederate extends SKFederate {
-    private final List<String> requiredObjectNames;
 
     protected SEEFederate(File configurationFile, String... requiredObjects) {
         super(configurationFile);
-        requiredObjectNames = Arrays.asList(requiredObjects);
 
         // TODO - Manage discovery of required objects
     }
 
     @Override
     public void configureAndStart() {
-        initializeExCO();
+        // initializeExCO();
         declareClasses();
-        declareObjectInstances();
+        // declareObjectInstances();
         // TODO - Wait for all required objects to be discovered.
-        setupTimeManagement();
+        // setupTimeManagement();
     }
 
     private void initializeExCO() {

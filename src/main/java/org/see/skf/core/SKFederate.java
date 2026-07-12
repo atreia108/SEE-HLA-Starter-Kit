@@ -31,13 +31,13 @@ import hla.rti1516_2025.RTIambassador;
 import hla.rti1516_2025.ResignAction;
 import hla.rti1516_2025.RtiConfiguration;
 import hla.rti1516_2025.exceptions.*;
+
 import org.see.skf.runtime.HLAClassManager;
 import org.see.skf.runtime.HLAObjectInstanceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.Set;
 
 public abstract class SKFederate {
     private static final Logger logger = LoggerFactory.getLogger(SKFederate.class);
@@ -96,7 +96,7 @@ public abstract class SKFederate {
             logger.warn("<{}> is already connected to the RTI hosted at <{}>.", federateName, rtiAddress);
         }
         catch (Unauthorized | ConnectionFailed | UnsupportedCallbackModel | CallNotAllowedFromWithinCallback |
-                 RTIinternalError e) {
+               RTIinternalError e) {
             throw new FederateStartupException("Failed to establish connection to the RTI hosted at <" + rtiAddress + ">.", e);
         }
     }
@@ -157,9 +157,9 @@ public abstract class SKFederate {
         }
     }
 
-    public final void publishObjectClass(String className, String... attributes) throws PublishException {
+    public final void publishObjectClass(String className, String... attributeNames) throws PublishException {
         try {
-            this.classManager.publishObjectClass(className, attributes);
+            this.classManager.publishObjectClass(className, attributeNames);
         } catch (FederateNotExecutionMember | NotConnected | AttributeNotDefined | ObjectClassNotDefined |
                  RestoreInProgress | RTIinternalError | SaveInProgress e) {
             throw new PublishException("Unable to publish the object class <" + className + ">.", e);
@@ -170,8 +170,13 @@ public abstract class SKFederate {
         // TODO
     }
 
-    public final void subscribeObjectClass(String className, String... attributes) {
-        // TODO
+    public final void subscribeObjectClass(String className, String... attributeNames) {
+        try {
+            classManager.subscribeObjectClass(className, attributeNames);
+        } catch (FederateNotExecutionMember | AttributeNotDefined | ObjectClassNotDefined | RestoreInProgress |
+                 NotConnected | RTIinternalError | SaveInProgress e) {
+            throw new SubscribeException("Unable to subscribe the object class <" + className + ">.", e);
+        }
     }
 
     public final void unsubscribeObjectClass(String className, String... attributes) {
@@ -179,6 +184,10 @@ public abstract class SKFederate {
     }
 
     public final void createObjectInstance(Object objectInstance) {
+        // TODO
+    }
+
+    public final void createObjectInstance(Object objectInstance, String name) {
         // TODO
     }
 

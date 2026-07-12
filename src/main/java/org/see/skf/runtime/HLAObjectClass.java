@@ -41,17 +41,19 @@ public final class HLAObjectClass {
     }
 
     public void publish(String... attributeNames) throws FederateNotExecutionMember, NotConnected, AttributeNotDefined, ObjectClassNotDefined, RestoreInProgress, RTIinternalError, SaveInProgress {
-        Set<Attribute> publishableAttributes = new HashSet<>(attributeNames.length);
+        Set<Attribute> publishedAttributes = new HashSet<>(attributeNames.length);
 
         for (String attributeName : attributeNames) {
             Attribute attribute = getAndCreateAttributeIfAbsent(attributeName);
             attribute.published.set(true);
 
-            publishableAttributes.add(attribute);
+            publishedAttributes.add(attribute);
         }
 
-        AttributeHandleSet publishableAttributeHandles = assembleAttributeHandleSet(publishableAttributes);
-        rtiAmbassador.publishObjectClassAttributes(this.handle, publishableAttributeHandles);
+        AttributeHandleSet publishedAttributeHandles = assembleAttributeHandleSet(publishedAttributes);
+        rtiAmbassador.publishObjectClassAttributes(this.handle, publishedAttributeHandles);
+
+        logAction("Published", attributeNames);
     }
 
     public void unpublish(String... attributeNames) {
@@ -61,11 +63,20 @@ public final class HLAObjectClass {
         }
     }
 
-    public void subscribe(String ...attributeNames) {
+    public void subscribe(String ...attributeNames) throws FederateNotExecutionMember, NotConnected, AttributeNotDefined, ObjectClassNotDefined, RestoreInProgress, RTIinternalError, SaveInProgress {
+        Set<Attribute> subscribedAttributes = new HashSet<>(attributeNames.length);
+
         for (String attributeName : attributeNames) {
             Attribute attribute = getAndCreateAttributeIfAbsent(attributeName);
             attribute.subscribed.set(true);
+
+            subscribedAttributes.add(attribute);
         }
+
+        AttributeHandleSet subscribedAttributeHandles = assembleAttributeHandleSet(subscribedAttributes);
+        rtiAmbassador.subscribeObjectClassAttributes(this.handle, subscribedAttributeHandles);
+
+        logAction("Subscribed", attributeNames);
     }
 
     public void unsubscribe(String... attributeNames) {
@@ -75,8 +86,20 @@ public final class HLAObjectClass {
         }
     }
 
-    private void addAttribute(Attribute attribute) {
-        this.attributes.add(attribute);
+    private void logAction(String action, String... attributeNames) {
+        StringBuilder sb = new StringBuilder("[ ");
+
+        for (int i = 0; i < attributeNames.length; i++) {
+            sb.append(attributeNames[i]);
+
+            if (i != attributeNames.length - 1) {
+                sb.append(", ");
+            } else {
+                sb.append(" ]");
+            }
+        }
+
+        logger.info("{} <{}> attributes {}", action, this.name, sb);
     }
 
     private Attribute getAndCreateAttributeIfAbsent(String attributeName) {
@@ -84,7 +107,7 @@ public final class HLAObjectClass {
                 .filter(attribute -> attribute.name.equals(attributeName))
                 .findFirst().orElseGet(() -> new Attribute(attributeName));
 
-        addAttribute(targetAttribute);
+        this.attributes.add(targetAttribute);
         return targetAttribute;
     }
 

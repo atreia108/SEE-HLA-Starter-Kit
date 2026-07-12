@@ -25,12 +25,7 @@ public final class HLAClassManager {
             throw new IllegalArgumentException("At least one attribute is required to publish the object class <" + name + ">.");
         }
 
-        HLAObjectClass objectClass;
-        if ((objectClass = getObjectClass(name)) == null) {
-            objectClass = new HLAObjectClass(name);
-            this.objectClasses.add(objectClass);
-        }
-
+        HLAObjectClass objectClass = getAndCreateObjectClassIfAbsent(name);
         objectClass.publish(attributeNames);
     }
 
@@ -38,8 +33,13 @@ public final class HLAClassManager {
 
     }
 
-    public void subscribeObjectClass(String name, String... attributes) {
+    public void subscribeObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, AttributeNotDefined, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        if (attributeNames.length < 1) {
+            throw new IllegalArgumentException("At least one attribute is required to subscribe the object class <" + name + ">.");
+        }
 
+        HLAObjectClass objectClass = getAndCreateObjectClassIfAbsent(name);
+        objectClass.subscribe(attributeNames);
     }
 
     public void unsubscribeObjectClass(String name, String... attributes) {
@@ -60,6 +60,16 @@ public final class HLAClassManager {
 
     public void unsubscribeInteractionClass(String name) {
 
+    }
+
+    private HLAObjectClass getAndCreateObjectClassIfAbsent(String name) {
+        HLAObjectClass objectClass = this.objectClasses.stream()
+                .filter(c -> c.getName().equals(name))
+                .findFirst()
+                .orElseGet(() -> new HLAObjectClass(name));
+
+        this.objectClasses.add(objectClass);
+        return objectClass;
     }
 
     public HLAObjectClass getObjectClass(String name) {
