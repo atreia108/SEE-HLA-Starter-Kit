@@ -12,20 +12,41 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 
 public final class SKAnnotatedTypeParser {
 
     // All coders used by the federate are cached here, so that eventually we won't have to instantiate any new coders (which can be a computationally expensive process, since it uses the reflection API).
-    private final Map<Class<? extends Coder<?>>, Coder<?>> coderPool;
+    private final Map<Class<? extends Coder<?>>, Coder<?>> coderInstancePool;
+    private final Map<Class<? extends Coder<?>>, Method[]> coderClassToMethods;
 
     public SKAnnotatedTypeParser() {
-        this.coderPool = new ConcurrentHashMap<>();
+        this.coderInstancePool = new HashMap<>();
+        this.coderClassToMethods = new HashMap<>();
     }
 
+    /*
     ParseResult parse(Object parseableObject) throws AnnotationParseException {
         return new ParseResult(parseableObject);
     }
+     */
+
+    public HLAObjectInstance parseObject(Object parseableObject) throws AnnotationParseException {
+        return null;
+    }
+
+    public HLAInteractionData parseInteraction(Object parseableObject) throws AnnotationParseException {
+        return null;
+    }
+
+    final class ParseResult {
+        private final Object target;
+
+        private ParseResult(Object target) {
+            this.target = target;
+        }
+    }
+    /*
 
     final class ParseResult {
 
@@ -34,19 +55,16 @@ public final class SKAnnotatedTypeParser {
         // Name in the HLA FOM such as "HLAobjectRoot.PhysicalEntity" or "HLAinteractionRoot.ModeTransitionRequest".
         private final String fomClassName;
 
-        // Each attribute/parameter corresponding to the Java field of the class.
-        // For instance, we may have a class such as PhysicalEntity with the fields parentReferenceFrame and bodyWrtStructural.
-        // In the FOM, these are designated as "parent_reference_frame" and "body_wrt_structural". So this mapping reconciles that difference.
-        private final Map<String, Field> fomElementToField;
-
         // As per the enforced JavaBeans standard requirement for all simulation class models, there has to be a getter and setter for every field
         // that holds data for its corresponding attribute/parameter in the FOM.
         // Method[0] = getter and Method[1] = setter
-        private final Map<Field, Method[]> fieldToGetterSetter;
+        private final Map<String, Method[]> attributeNameToAccessors;
 
-        private final Map<Field, Coder<?>> fieldToCoder;
+        private final Map<String, Coder<?>> attributeToCoders;
 
-        ParseResult(Object object) {
+        private final Map<Class<?>, Method[]> coderToMethods;
+
+        private ParseResult(Object object) {
             this.targetObject = object;
 
             ObjectClass objectClass = object.getClass().getAnnotation(ObjectClass.class);
@@ -59,9 +77,9 @@ public final class SKAnnotatedTypeParser {
                 this.fomClassName = interactionClass.name();
             }
 
-            this.fomElementToField = new HashMap<>();
-            this.fieldToGetterSetter = new HashMap<>();
-            this.fieldToCoder = new HashMap<>();
+            this.attributeNameToAccessors = new HashMap<>();
+            this.attributeToCoders = new HashMap<>();
+            this.coderToMethods = new HashMap<>();
 
             build();
         }
@@ -93,21 +111,29 @@ public final class SKAnnotatedTypeParser {
                     Attribute objectClassAttribute = field.getAnnotation(Attribute.class);
                     String attributeName = objectClassAttribute.name();
 
+                    String getterName = "get" + capitalize(attributeName);
+                    String setterName = "set" + capitalize(attributeName);
                     Method[] accessorMethods = new Method[]{
-                            retrieveAccessor(clazz, attributeName, "get"),
-                            retrieveAccessor(clazz, attributeName, "set")
+                            retrieveMethod(clazz, getterName),
+                            retrieveMethod(clazz, setterName)
                     };
 
-                    Coder<?> attributeCoder = getAttributeCoder(objectClassAttribute.coder());
+                    Coder<?> attributeCoder = getAndCreateCoderIfAbsent(objectClassAttribute.coder());
+                    Class<?> coderClass = attributeCoder.getClass();
 
-                    this.fomElementToField.put(attributeName, field);
-                    this.fieldToGetterSetter.put(field, accessorMethods);
-                    this.fieldToCoder.put(field, attributeCoder);
+                    Method[] coderMethods = new Method[]{
+                            retrieveMethod(coderClass, "encode"),
+                            retrieveMethod(coderClass, "decode")
+                    };
+
+                    this.attributeNameToAccessors.put(attributeName, accessorMethods);
+                    this.attributeToCoders.put(attributeName, attributeCoder);
+                    this.coderToMethods.put(coderClass, coderMethods);
                 }
             }
         }
 
-        private Coder<?> getAttributeCoder(Class<? extends Coder<?>> clazz) {
+        private Coder<?> getAndCreateCoderIfAbsent(Class<? extends Coder<?>> clazz) {
             Coder<?> coderInstance;
 
             if (coderPool.containsKey(clazz)) {
@@ -128,14 +154,13 @@ public final class SKAnnotatedTypeParser {
             return coderInstance;
         }
 
-        // Prefix will only ever be "get" or "set".
-        private Method retrieveAccessor(Class<?> clazz, String attributeName, String prefix) {
-            String accessorName = prefix + capitalize(attributeName);
+        private Method[] getCoderMethodsIfAbsent(C)
 
+        private Method retrieveMethod(Class<?> clazz, String methodName, Class<?>... parameterType) {
             try {
-                return clazz.getDeclaredMethod(accessorName);
+                return (parameterType.length > 0) ? clazz.getDeclaredMethod(methodName, parameterType) : clazz.getDeclaredMethod(methodName);
             } catch (NoSuchMethodException e) {
-                throw new AnnotationParseException("No public " + prefix + "ter method for the attribute <" + attributeName + ">.");
+                throw new AnnotationParseException("Required method " + methodName + "() is not defined for the class <" + clazz.getName() + ">.");
             }
         }
 
@@ -147,16 +172,37 @@ public final class SKAnnotatedTypeParser {
             return this.fomClassName;
         }
 
-        Map<String, Field> getFomElementFields() {
-            return this.fomElementToField;
+        Set<String> getAttributeNames() {
+            return this.attributeNameToAccessors.keySet();
         }
 
-        Map<Field, Method[]> getFieldMethods() {
-            return this.fieldToGetterSetter;
+        Method[] getAttributeAccessors(String attributeName) {
+            return this.attributeNameToAccessors.get(attributeName);
         }
 
-        Map<Field, Coder<?>> getFieldCoders() {
-            return this.fieldToCoder;
+        Map<String, Method[]> getAttributeAccessors() {
+            return this.attributeNameToAccessors;
+        }
+
+        Map<String, Coder<?>> getAttributeCoders() {
+            return this.attributeToCoders;
+        }
+
+        Coder<?> getAttributeCoder(String attributeName) {
+            return this.attributeToCoders.get(attributeName);
+        }
+
+        Map<Coder<?>, Method[]> getCoderMethods() {
+            return this.coderToMethods;
+        }
+
+        Method[] getAttributeCoderMethods(Coder<?> coder) {
+            return this.coderToMethods.get(coder);
+        }
+
+        Object getTargetObject() {
+            return this.targetObject;
         }
     }
+     */
 }

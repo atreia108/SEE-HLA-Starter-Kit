@@ -5,6 +5,7 @@ public final class ObjectInstanceCreationException extends RuntimeException {
     public ObjectInstanceCreationException(String message) {
         super(message);
     }
+
     public ObjectInstanceCreationException(String message, Throwable cause) {
         super(message, cause);
     }

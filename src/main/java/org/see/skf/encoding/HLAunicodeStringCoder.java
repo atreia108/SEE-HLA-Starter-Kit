@@ -6,21 +6,21 @@ import hla.rti1516_2025.encoding.HLAunicodeString;
 
 public class HLAunicodeStringCoder implements Coder<String> {
 
-    private final HLAunicodeString unicodeString;
+    private final HLAunicodeString stringType;
 
     public HLAunicodeStringCoder(EncoderFactory encoderFactory) {
-        this.unicodeString = encoderFactory.createHLAunicodeString();
+        this.stringType = encoderFactory.createHLAunicodeString();
     }
 
     @Override
     public byte[] encode(String data) {
-        unicodeString.setValue(data);
-        return unicodeString.toByteArray();
+        stringType.setValue(data);
+        return stringType.toByteArray();
     }
 
     @Override
     public String decode(byte[] bytes) throws DecoderException {
-        unicodeString.decode(bytes);
-        return unicodeString.getValue();
+        stringType.decode(bytes);
+        return stringType.getValue();
     }
 }

@@ -30,7 +30,6 @@ import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.FederateInternalError;
 import hla.rti1516_2025.time.LogicalTime;
 import org.see.skf.runtime.HLAClassManager;
-import org.see.skf.runtime.HLAObjectInstance;
 import org.see.skf.runtime.HLAObjectInstanceManager;
 import org.see.skf.runtime.SKAnnotatedTypeParser;
 import org.slf4j.Logger;
@@ -75,6 +74,16 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
     @Override
     public void provideAttributeValueUpdate(ObjectInstanceHandle objectInstance, AttributeHandleSet attributes, byte[] userSuppliedTag) throws FederateInternalError {
+
+    }
+
+    @Override
+    public void objectInstanceNameReservationSucceeded(String objectInstanceName) throws FederateInternalError {
+
+    }
+
+    @Override
+    public void objectInstanceNameReservationFailed(String objectInstanceName) throws FederateInternalError {
 
     }
 

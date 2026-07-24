@@ -86,6 +86,7 @@ public final class HLAObjectClass {
         }
     }
 
+    // Log the action (published/subscribed) taken against the provided object class attributes.
     private void logAction(String action, String... attributeNames) {
         StringBuilder sb = new StringBuilder("[ ");
 
@@ -113,20 +114,24 @@ public final class HLAObjectClass {
 
     private AttributeHandleSet assembleAttributeHandleSet(Set<Attribute> set) throws FederateNotExecutionMember, NotConnected {
         AttributeHandleSet handleSet = rtiAmbassador.getAttributeHandleSetFactory().create();
-
-        set.forEach((attribute) -> {
-            handleSet.add(attribute.handle);
-        });
+        set.forEach(attribute -> handleSet.add(attribute.handle));
 
         return handleSet;
     }
 
-    public String getName() {
+    String getName() {
         return this.name;
     }
 
-    public ObjectClassHandle getHandle() {
+    ObjectClassHandle getHandle() {
         return this.handle;
+    }
+
+    Attribute getAttribute(AttributeHandle handle) {
+        return attributes.stream()
+                .filter(attribute -> attribute.handle == handle)
+                .findFirst()
+                .orElse(null);
     }
 
     final class Attribute {
@@ -135,7 +140,7 @@ public final class HLAObjectClass {
         private final AtomicBoolean published;
         private final AtomicBoolean subscribed;
 
-        Attribute(String name) {
+        private Attribute(String name) {
             this.name = name;
             this.published = new AtomicBoolean(false);
             this.subscribed = new AtomicBoolean(false);
@@ -147,6 +152,14 @@ public final class HLAObjectClass {
             } catch (InvalidObjectClassHandle | FederateNotExecutionMember | NotConnected | RTIinternalError e) {
                 throw new RuntimeException(e);
             }
+        }
+
+        String getName() {
+            return this.name;
+        }
+
+        AttributeHandle getHandle() {
+            return this.handle;
         }
     }
 }

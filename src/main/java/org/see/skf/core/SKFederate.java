@@ -68,7 +68,7 @@ public abstract class SKFederate {
         this.rtiAmbassador = SKUtilityFactory.INSTANCE.getRtiAmbassador();
 
         this.classManager = new HLAClassManager();
-        this.instanceManager = new HLAObjectInstanceManager();
+        this.instanceManager = new HLAObjectInstanceManager(new HLACallbackManager());
         this.federateAmbassador = new SKFederateAmbassador(classManager, instanceManager);
 
         connectToRTI();

@@ -1,86 +1,172 @@
 package org.see.skf.runtime;
 
+import hla.rti1516_2025.AttributeHandle;
 import hla.rti1516_2025.AttributeHandleValueMap;
+import hla.rti1516_2025.ObjectInstanceHandle;
 import hla.rti1516_2025.RTIambassador;
-import hla.rti1516_2025.exceptions.FederateNotExecutionMember;
-import hla.rti1516_2025.exceptions.NotConnected;
 import org.see.skf.core.SKUtilityFactory;
 import org.see.skf.encoding.Coder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
-public final class HLAObjectInstance {
-    private final Logger logger = LoggerFactory.getLogger(HLAObjectInstance.class);
+final class HLAObjectInstance {
     private final RTIambassador rtiAmbassador;
 
-    private final HLAObjectClass objectClass;
-    private final Object instance;
-    // private final Set<HLAObjectClassAttribute> attributes;
-    // private final Set<HLAObjectClassAttribute> ownedAttributes;
-    // private final AttributeHandleValueMap handleValueMap;
+    private final String name;
+    private final ObjectInstanceHandle handle;
+    private final Map<HLAObjectClass.Attribute, AttributeReflectionData> attributeToReflectionData;
+    private final Set<HLAObjectClass.Attribute> ownedAttributes;
 
-    public HLAObjectInstance(HLAObjectClass objectClass, Set<Coder<?>> coders, Object instance) {
+    private final PropertyChangeSupport propertyChangeSupport;
+    private final Set<PropertyChangeListener> observers;
+
+    // private final Object instance;
+
+    HLAObjectInstance(String name, Map<HLAObjectClass.Attribute, Boolean> attributeToOwnership, SKAnnotatedTypeParser.ParseResult objectReflectionData) {
         this.rtiAmbassador = SKUtilityFactory.INSTANCE.getRtiAmbassador();
-        this.instance = instance;
-        this.objectClass = objectClass;
-        // this.attributes = objectClass.getAttributes();
 
-        /*
-        try {
-            // int attributeCount = attributes.size();
-            // this.handleValueMap = rtiAmbassador.getAttributeHandleValueMapFactory().create(attributeCount);
-        } catch (FederateNotExecutionMember | NotConnected e) {
-            String className = objectClass.getName();
-            throw new RtiHandleRetrievalException("Cannot not create AttributeHandleValueMap for an instance of the object class <" + className + ">.", e);
-        }
-         */
-        // this.ownedAttributes = new CopyOnWriteArraySet<>();
+        // TODO - ObjectInstanceHandle initialization here.
+        this.handle = null;
 
-        registerAtRti();
+        this.name = name;
+        // this.instance = objectReflectionData.getTargetObject();
+        this.attributeToReflectionData = new HashMap<>();
+        this.ownedAttributes = new HashSet<>();
+
+        this.observers = new CopyOnWriteArraySet<>();
+        this.propertyChangeSupport = new PropertyChangeSupport(this);
+
+        generateAttributes(attributeToOwnership, objectReflectionData);
     }
 
-    private void registerAtRti() {
+    private void generateAttributes(Map<HLAObjectClass.Attribute, Boolean> attributeToOwnership, SKAnnotatedTypeParser.ParseResult objectReflectionData) {
+        attributeToOwnership.forEach((attribute, isOwned) -> {
+            // Method[] accessors = objectReflectionData.getAttributeAccessors(attribute.getName());
+            // Coder<?> coder = objectReflectionData.getAttributeCoder(attribute.getName());
+            // Method[] coderMethods = objectReflectionData.getAttributeCoderMethods(coder);
 
-        
+            // AttributeReflectionData attributeReflectionData = new AttributeReflectionData(accessors, coder, coderMethods);
+            // attributeToReflectionData.put(attribute, attributeReflectionData);
+
+            if (Boolean.TRUE.equals(isOwned)) {
+                this.ownedAttributes.add(attribute);
+            }
+        });
     }
 
-    private void reserveName() {
-        /*
-        if (!this.name.isEmpty() && !this.name.isBlank()) {
+    AttributeHandleValueMap serializeAttributes(String... attributeNames) {
 
-        } else {
-            throw new ObjectInstanceCreationException("Whitespaces or empty string cannot be used to reserve the name of an object instance.");
-        }
-         */
+        return null;
     }
 
-    public void decode() {
+    void deserializeAttributes(AttributeHandleValueMap newValueHandleMap) {
+        newValueHandleMap.forEach((k,v) -> {
+            HLAObjectClass.Attribute attribute = getAttribute(k);
+            AttributeReflectionData reflectionData = this.attributeToReflectionData.get(attribute);
 
+            String attributeName = attribute.getName();
+            try {
+                Object[] values = reflectionData.decode(v);
+                Object oldValue = values[0];
+                Object newValue = values[1];
+                notifyObservers(attributeName, oldValue, newValue);
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new ObjectUpdateException("Exception occurred whilst decoding new values for the <" + attributeName + "> attribute of <" + this.name + ">.", e);
+            }
+        });
     }
 
-    // TODO - Attribute ownership acquisition logic.
-    public void acquireOwnership(String attributeName) {
-
+    void attributeOwned(String attributeName) {
+        this.ownedAttributes.stream()
+                .filter(a -> a.getName().equals(attributeName))
+                .findFirst()
+                .ifPresent(this.ownedAttributes::add);
     }
 
-    // TODO - Attribute ownership release logic.
-    public void releaseOwnership(String attributeName) {
-
+    void attributeDisowned(String attributeName) {
+        this.ownedAttributes.stream()
+                .filter(a -> a.getName().equals(attributeName))
+                .findFirst()
+                .ifPresent(this.ownedAttributes::remove);
     }
 
-    // TODO - Now that we're allowing specific attributes to be updated, we have to provide which ones are going to be sent to the RTI.
-    public void serialize(String... attributeNames) {
-        // TODO - Encode the entire object instance for dispatch to RTI.
+    void registerObserver(PropertyChangeListener observer) {
+        this.propertyChangeSupport.addPropertyChangeListener(observer);
     }
 
-    public void deserialize(AttributeHandleValueMap attributeValueMap) {
-        // TODO - Write all changes into the object instance fields.
+    void unregisterObserver(PropertyChangeListener observer) {
+        this.propertyChangeSupport.removePropertyChangeListener(observer);
     }
 
-    public Object get() {
+    void notifyObservers(String propertyName, Object oldValue, Object newValue) {
+        propertyChangeSupport.firePropertyChange(propertyName, oldValue, newValue);
+    }
+
+    String getName() {
+        return this.name;
+    }
+
+    HLAObjectClass.Attribute getAttribute(AttributeHandle handle) {
+        return this.attributeToReflectionData.keySet().stream()
+                .filter(a -> a.getHandle().equals(handle))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /*
+    Object get() {
         return this.instance;
+    }
+     */
+
+    private final class AttributeReflectionData {
+
+        private final Method getter;
+
+        private final Method setter;
+
+        private final Coder<?> coder;
+
+        private final Method encode;
+
+        private final Method decode;
+
+        private AttributeReflectionData(Method[] accessorMethods, Coder<?> coder, Method[] coderMethods) {
+            this.getter = accessorMethods[0];
+            this.setter = accessorMethods[1];
+
+            this.coder = coder;
+            this.encode = coderMethods[0];
+            this.decode = coderMethods[1];
+        }
+
+        byte[] encode() throws IllegalAccessException, InvocationTargetException {
+            // Object value = getter.invoke(instance);
+            // Object encodedValue = encode.invoke(coder, value);
+
+            // return (byte[]) encodedValue;
+            return null;
+        }
+
+        Object[] decode(byte[] encodedValue) throws IllegalAccessException, InvocationTargetException {
+            // Perhaps you may be warned here that the following line is incorrect. Casting the second argument to
+            // java.lang.Object makes the warning go away. Be wise, and do not heed its words. All is as it should be.
+            // Retaining byte[] as the type for the parameter is, in fact, the correct choice - decoding won't work
+            // otherwise.
+            // Object oldValue = getter.invoke(instance);
+            Object newValue = decode.invoke(coder, encodedValue);
+            // setter.invoke(instance, newValue);
+
+            // return new Object[] { oldValue, newValue };
+            return null;
+        }
     }
 }
