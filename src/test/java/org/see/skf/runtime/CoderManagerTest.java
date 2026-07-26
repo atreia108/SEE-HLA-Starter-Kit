@@ -1,6 +1,6 @@
 /*****************************************************************
- SEE HLA Starter Kit Framework -  A Java library that supports
- the development of HLA Federates in the Simulation Exploration
+ SEE HLA Starter Kit Framework -  A Java framework for developing
+ SRFOM-compliant HLA Federates in the Simulation Exploration
  Experience (SEE) program.
 
  Copyright (c) 2014, 2026 SMASH Lab - University of Calabria
@@ -26,6 +26,7 @@
 
 package org.see.skf.runtime;
 
+import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import org.junit.jupiter.api.Test;
 import org.see.skf.encoding.Coder;
@@ -45,7 +46,7 @@ class CoderManagerTest {
 
     @Test
     void testDefaultCoders() {
-        assertThrows(NullPointerException.class, () -> {coderManager.get(null);});
+        assertThrows(NullPointerException.class, () -> coderManager.get(null));
         assertNotNull(coderManager.get(HLAunicodeStringCoder.class));
         assertNotNull(coderManager.get(HLAbooleanCoder.class));
     }
@@ -60,11 +61,11 @@ class CoderManagerTest {
     }
 
     @Test
-    void testMethodInvocation() {
+    void testSerializationMethodInvocations() {
         CoderManager.CoderReflectionData data = this.coderManager.get(HLAunicodeStringCoder.class);
-        Coder<?> coder = data.getCoder();
-        Method encodeMethod = data.getEncodeMethod();
-        Method decodeMethod = data.getDecodeMethod();
+        Coder<?> coder = data.coder();
+        Method encodeMethod = data.encodeMethod();
+        Method decodeMethod = data.decodeMethod();
 
         assertDoesNotThrow(() -> {
             Object encodedValue = encodeMethod.invoke(coder, "Hello, World!");
@@ -72,6 +73,13 @@ class CoderManagerTest {
             Object decodedValue = decodeMethod.invoke(coder, encodedValue);
             assertNotNull(decodedValue);
         });
+
+
+    }
+
+    @Test
+    void testFailCases() {
+        assertThrows(CoderInstantiationException.class, () -> coderManager.get(InvalidCoder.class));
     }
 }
 
@@ -104,5 +112,18 @@ class HLAbooleanCoderL1 extends HLAbooleanCoder {
 class HLAbooleanCoderL2 extends HLAbooleanCoder {
     public HLAbooleanCoderL2(EncoderFactory encoderFactory) {
         super(encoderFactory);
+    }
+}
+
+class InvalidCoder implements Coder<Object> {
+
+    @Override
+    public byte[] encode(Object data) {
+        return new byte[0];
+    }
+
+    @Override
+    public Object decode(byte[] data) throws DecoderException {
+        return null;
     }
 }

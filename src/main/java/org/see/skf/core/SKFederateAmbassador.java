@@ -1,6 +1,6 @@
 /*****************************************************************
- SEE HLA Starter Kit Framework -  A Java library that supports
- the development of HLA Federates in the Simulation Exploration
+ SEE HLA Starter Kit Framework -  A Java framework for developing
+ SRFOM-compliant HLA Federates in the Simulation Exploration
  Experience (SEE) program.
 
  Copyright (c) 2014, 2026 SMASH Lab - University of Calabria
@@ -44,7 +44,7 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
     private final HLAClassManager classManager;
     private final HLAObjectInstanceManager objectInstanceManager;
 
-    private final SKAnnotatedTypeParser annotatedTypeParser;
+
     private final Set<ObjectInstanceListener> objectInstanceListeners;
     private final Set<InteractionListener> interactionListeners;
 
@@ -52,7 +52,6 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
         this.classManager = classManager;
         this.objectInstanceManager = objectInstanceManager;
 
-        this.annotatedTypeParser = new SKAnnotatedTypeParser();
         this.objectInstanceListeners = new CopyOnWriteArraySet<>();
         this.interactionListeners = new CopyOnWriteArraySet<>();
     }

@@ -1,166 +1,186 @@
 package org.see.skf.runtime;
 
-import hla.rti1516_2025.encoding.EncoderFactory;
-import org.see.skf.core.SKUtilityFactory;
 import org.see.skf.core.annotations.Attribute;
 import org.see.skf.core.annotations.InteractionClass;
 import org.see.skf.core.annotations.ObjectClass;
+import org.see.skf.core.annotations.Parameter;
 import org.see.skf.encoding.Coder;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
 import java.util.Set;
 
 public final class SKAnnotatedTypeParser {
 
-    // All coders used by the federate are cached here, so that eventually we won't have to instantiate any new coders (which can be a computationally expensive process, since it uses the reflection API).
-    private final Map<Class<? extends Coder<?>>, Coder<?>> coderInstancePool;
-    private final Map<Class<? extends Coder<?>>, Method[]> coderClassToMethods;
+    private final CoderManager coderManager;
 
-    public SKAnnotatedTypeParser() {
-        this.coderInstancePool = new HashMap<>();
-        this.coderClassToMethods = new HashMap<>();
+    public SKAnnotatedTypeParser(CoderManager coderManager) {
+        this.coderManager = coderManager;
     }
 
-    /*
-    ParseResult parse(Object parseableObject) throws AnnotationParseException {
-        return new ParseResult(parseableObject);
-    }
-     */
-
-    public HLAObjectInstance parseObject(Object parseableObject) throws AnnotationParseException {
-        return null;
+    public ParsedStructure parseObjectInstance(Object parseableObject) {
+        isNull(parseableObject);
+        return buildObjectInstanceStructure(parseableObject);
     }
 
-    public HLAInteractionData parseInteraction(Object parseableObject) throws AnnotationParseException {
-        return null;
+    public ParsedStructure parseInteraction(Object parseableObject) {
+        isNull(parseableObject);
+        return buildInteractionStructure(parseableObject);
     }
 
-    final class ParseResult {
-        private final Object target;
-
-        private ParseResult(Object target) {
-            this.target = target;
+    private void isNull(Object targetObject){
+        if (targetObject == null) {
+            throw new AnnotationParseException("Cannot parse the structure of an object that is NULL.");
         }
     }
-    /*
 
-    final class ParseResult {
+    private ParsedStructure buildObjectInstanceStructure(Object parseableObject){
+        Class<?> clazz = parseableObject.getClass();
+        ObjectClass annotation = isObjectClass(clazz);
+        String objectClassName = annotation.name();
+        ParsedStructure objectClassStructure = new ParsedStructure(parseableObject, objectClassName);
+
+        while (clazz != Object.class && clazz.isAnnotationPresent(ObjectClass.class)) {
+            evalMultiAnnotation(clazz);
+
+            for (Field field : clazz.getDeclaredFields()) {
+                Attribute attribute = field.getAnnotation(Attribute.class);
+                if (attribute != null) {
+                    Trait t = new Trait(field)
+                            .withName(attribute.name())
+                            .ofClass(clazz)
+                            .withCoder(attribute.coder());
+
+                    objectClassStructure.add(t);
+                }
+            }
+
+            clazz = clazz.getSuperclass();
+        }
+
+        return objectClassStructure;
+    }
+
+    private ObjectClass isObjectClass(Class<?> clazz){
+        ObjectClass annotation = clazz.getAnnotation(ObjectClass.class);
+
+        if (annotation == null) {
+            throw new AnnotationParseException(clazz + " does not have an @ObjectClass annotation attached.");
+        }
+
+        return annotation;
+    }
+
+    private void evalMultiAnnotation(Class<?> clazz) {
+        ObjectClass a1 = clazz.getAnnotation(ObjectClass.class);
+        InteractionClass a2 = clazz.getAnnotation(InteractionClass.class);
+
+        if (a1 != null && a2 != null) {
+            throw new AnnotationParseException("Confusing attachment of both @ObjectClass and @InteractionClass annotations on <." + clazz + ">.");
+        }
+    }
+
+    private ParsedStructure buildInteractionStructure(Object parseableObject) {
+        Class<?> clazz = parseableObject.getClass();
+        InteractionClass annotation = isInteractionClass(parseableObject.getClass());
+        String interactionClassName = annotation.name();
+        ParsedStructure interactionClassStructure = new ParsedStructure(parseableObject, interactionClassName);
+
+        while (clazz != Object.class && clazz.isAnnotationPresent(InteractionClass.class)) {
+            evalMultiAnnotation(clazz);
+
+            for (Field field : clazz.getDeclaredFields()) {
+                Parameter parameter = field.getAnnotation(Parameter.class);
+                if (parameter != null) {
+                    Trait t = new Trait(field)
+                            .withName(parameter.name())
+                            .ofClass(clazz)
+                            .withCoder(parameter.coder());
+
+                    interactionClassStructure.add(t);
+                }
+            }
+
+            clazz = clazz.getSuperclass();
+        }
+
+        return interactionClassStructure;
+    }
+
+    private InteractionClass isInteractionClass(Class<?> clazz){
+        InteractionClass annotation = clazz.getAnnotation(InteractionClass.class);
+
+        if (annotation == null) {
+            throw new AnnotationParseException("The class " + clazz + " does not have an @InteractionClass annotation attached.");
+        }
+
+        return annotation;
+    }
+
+    public final class ParsedStructure {
 
         private final Object targetObject;
 
         // Name in the HLA FOM such as "HLAobjectRoot.PhysicalEntity" or "HLAinteractionRoot.ModeTransitionRequest".
-        private final String fomClassName;
+        private final String classNameInFom;
 
-        // As per the enforced JavaBeans standard requirement for all simulation class models, there has to be a getter and setter for every field
-        // that holds data for its corresponding attribute/parameter in the FOM.
-        // Method[0] = getter and Method[1] = setter
-        private final Map<String, Method[]> attributeNameToAccessors;
+        // A trait refers to an attribute if this class is an HLA object class, or a parameter if this is an HLA interaction class.
+        private final Set<Trait> traits;
 
-        private final Map<String, Coder<?>> attributeToCoders;
+        private ParsedStructure(Object targetObject, String classNameInFom) {
+            this.targetObject = targetObject;
+            this.classNameInFom = classNameInFom;
 
-        private final Map<Class<?>, Method[]> coderToMethods;
-
-        private ParseResult(Object object) {
-            this.targetObject = object;
-
-            ObjectClass objectClass = object.getClass().getAnnotation(ObjectClass.class);
-            InteractionClass interactionClass = object.getClass().getAnnotation(InteractionClass.class);
-            checkAnnotationSuitability(objectClass, interactionClass);
-
-            if (objectClass != null) {
-                this.fomClassName = objectClass.name();
-            } else {
-                this.fomClassName = interactionClass.name();
-            }
-
-            this.attributeNameToAccessors = new HashMap<>();
-            this.attributeToCoders = new HashMap<>();
-            this.coderToMethods = new HashMap<>();
-
-            build();
+            this.traits = new HashSet<>();
         }
 
-        private void checkAnnotationSuitability(ObjectClass objectClass, InteractionClass interactionClass) {
-            if (objectClass != null && interactionClass != null) {
-                throw new AnnotationParseException("<" + targetObject + "> has both an @ObjectClass or @InteractionClass annotation attached.");
-            } else if (objectClass == null && interactionClass == null) {
-                throw new AnnotationParseException("<" + targetObject + "> because has neither @ObjectClass nor @InteractionClass annotation attached.");
-            }
+        private void add(Trait trait) {
+            this.traits.add(trait);
         }
 
-        private void build() {
-            Class<?> targetClass = targetObject.getClass();
-
-            while (targetClass != Object.class && targetClass.getAnnotation(ObjectClass.class) != null) {
-                processClass(targetClass);
-
-                // Continuously move up the object hierarchy.
-                targetClass = targetClass.getSuperclass();
-            }
+        public Object getTargetObject() {
+            return this.targetObject;
         }
 
-        private void processClass(Class<?> clazz) {
-            Field[] fields = clazz.getDeclaredFields();
-
-            for (Field field : fields) {
-                if (field.isAnnotationPresent(Attribute.class)) {
-                    Attribute objectClassAttribute = field.getAnnotation(Attribute.class);
-                    String attributeName = objectClassAttribute.name();
-
-                    String getterName = "get" + capitalize(attributeName);
-                    String setterName = "set" + capitalize(attributeName);
-                    Method[] accessorMethods = new Method[]{
-                            retrieveMethod(clazz, getterName),
-                            retrieveMethod(clazz, setterName)
-                    };
-
-                    Coder<?> attributeCoder = getAndCreateCoderIfAbsent(objectClassAttribute.coder());
-                    Class<?> coderClass = attributeCoder.getClass();
-
-                    Method[] coderMethods = new Method[]{
-                            retrieveMethod(coderClass, "encode"),
-                            retrieveMethod(coderClass, "decode")
-                    };
-
-                    this.attributeNameToAccessors.put(attributeName, accessorMethods);
-                    this.attributeToCoders.put(attributeName, attributeCoder);
-                    this.coderToMethods.put(coderClass, coderMethods);
-                }
-            }
+        public String getClassNameInFom() {
+            return this.classNameInFom;
         }
 
-        private Coder<?> getAndCreateCoderIfAbsent(Class<? extends Coder<?>> clazz) {
-            Coder<?> coderInstance;
+        public Set<Trait> getTraits() {
+            return this.traits;
+        }
+    }
 
-            if (coderPool.containsKey(clazz)) {
-                coderInstance = coderPool.get(clazz);
-            } else {
-                try {
-                    EncoderFactory encoderFactory = SKUtilityFactory.INSTANCE.getEncoderFactory();
-                    coderInstance = clazz.getDeclaredConstructor(EncoderFactory.class).newInstance(encoderFactory);
+    public final class Trait {
 
-                    coderPool.put(clazz, coderInstance);
-                } catch (InstantiationException | IllegalAccessException | NoSuchMethodException e) {
-                    throw new AnnotationParseException("Problem instantiating the coder <" + clazz + ">. Ensure that a public constructor that accepts EncoderFactory as parameter is present.", e);
-                } catch (InvocationTargetException e) {
-                    throw new AnnotationParseException("Problem instantiating the coder <" + clazz + ">. An unexpected exception was thrown by its constructor.", e);
-                }
-            }
+        private final Field field;
 
-            return coderInstance;
+        private String name;
+
+        private Method[] accessors;
+
+        private CoderManager.CoderReflectionData coderReflectionData;
+
+        Trait(Field field) {
+            this.field = field;
         }
 
-        private Method[] getCoderMethodsIfAbsent(C)
+        private Method[] retrieveAccessors(Class<?> clazz) {
+            String fieldName = field.getName();
+            Class<?> fieldType = field.getType();
+            String capitalizedFieldName = capitalize(fieldName);
 
-        private Method retrieveMethod(Class<?> clazz, String methodName, Class<?>... parameterType) {
+            String getterName = "get" + capitalizedFieldName;
+            String setterName = "set" + capitalizedFieldName;
+
             try {
-                return (parameterType.length > 0) ? clazz.getDeclaredMethod(methodName, parameterType) : clazz.getDeclaredMethod(methodName);
+                Method getterMethod = clazz.getDeclaredMethod(getterName);
+                Method setterMethod = clazz.getDeclaredMethod(setterName, fieldType);
+
+                return new Method[] { getterMethod, setterMethod };
             } catch (NoSuchMethodException e) {
-                throw new AnnotationParseException("Required method " + methodName + "() is not defined for the class <" + clazz.getName() + ">.");
+                throw new AnnotationParseException("The field <" + fieldName + "> either lacks one or more accessor (getter/setter) methods or these methods do not operate with the field's type <" + fieldType + ">.", e);
             }
         }
 
@@ -168,41 +188,44 @@ public final class SKAnnotatedTypeParser {
             return word.substring(0, 1).toUpperCase() + word.substring(1);
         }
 
-        String getFomClassName() {
-            return this.fomClassName;
+        private Trait withName(String name) {
+            this.name = name;
+            return this;
         }
 
-        Set<String> getAttributeNames() {
-            return this.attributeNameToAccessors.keySet();
+        private Trait ofClass(Class<?> clazz) {
+            this.accessors = retrieveAccessors(clazz);
+            return this;
         }
 
-        Method[] getAttributeAccessors(String attributeName) {
-            return this.attributeNameToAccessors.get(attributeName);
+        private Trait withCoder(Class<? extends Coder<?>> clazz) {
+            this.coderReflectionData = coderManager.get(clazz);
+
+            Class<?> fieldType = field.getType();
+            Class<?> genericType = this.coderReflectionData.genericType();
+
+            if (!fieldType.equals(genericType)) {
+                String fieldName = field.getName();
+                throw new AnnotationParseException("Field <" + fieldName + "> expected a coder for type <" + fieldType + "> but got <" + genericType + "> instead.");
+            }
+
+            return this;
         }
 
-        Map<String, Method[]> getAttributeAccessors() {
-            return this.attributeNameToAccessors;
+        public String name() {
+            return this.name;
         }
 
-        Map<String, Coder<?>> getAttributeCoders() {
-            return this.attributeToCoders;
+        public Method getter() {
+            return this.accessors[0];
         }
 
-        Coder<?> getAttributeCoder(String attributeName) {
-            return this.attributeToCoders.get(attributeName);
+        public Method setter() {
+            return this.accessors[1];
         }
 
-        Map<Coder<?>, Method[]> getCoderMethods() {
-            return this.coderToMethods;
-        }
-
-        Method[] getAttributeCoderMethods(Coder<?> coder) {
-            return this.coderToMethods.get(coder);
-        }
-
-        Object getTargetObject() {
-            return this.targetObject;
+        public Coder<?> coder() {
+            return this.coderReflectionData.coder();
         }
     }
-     */
 }

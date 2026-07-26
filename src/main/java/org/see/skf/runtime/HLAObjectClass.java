@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public final class HLAObjectClass {
+final class HLAObjectClass {
 
     private final Logger logger = LoggerFactory.getLogger(HLAObjectClass.class);
 

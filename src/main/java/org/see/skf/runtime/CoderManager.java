@@ -1,6 +1,6 @@
 /*****************************************************************
- SEE HLA Starter Kit Framework -  A Java library that supports
- the development of HLA Federates in the Simulation Exploration
+ SEE HLA Starter Kit Framework -  A Java framework for developing
+ SRFOM-compliant HLA Federates in the Simulation Exploration
  Experience (SEE) program.
 
  Copyright (c) 2014, 2026 SMASH Lab - University of Calabria
@@ -57,26 +57,34 @@ public final class CoderManager {
             throw new NullPointerException("Can't fetch coder instance for NULL.");
         }
 
-        Coder<?> coder = this.coderInstancePool.containsKey(clazz) ? this.coderInstancePool.get(clazz) : getCoder(clazz);
-        Method[] coderMethods = this.coderClassToMethods.get(clazz);
+        Class<?>[] coderAncestor = getCoderAncestor(clazz);
+        Class<?> genericType = coderAncestor[1];
+        Coder<?> coder = this.coderInstancePool.containsKey(clazz) ? this.coderInstancePool.get(clazz) : getCoder(clazz, coderAncestor);
 
-        return new CoderReflectionData(coder, coderMethods[0], coderMethods[1]);
+        Method[] encodingMethods = this.coderClassToMethods.get(clazz);
+        Method encodeMethod = encodingMethods[0];
+        Method decodeMethod = encodingMethods[1];
+
+        return new CoderReflectionData()
+                .withCoder(coder)
+                .withGenericType(genericType)
+                .withEncodeMethod(encodeMethod)
+                .withDecodeMethod(decodeMethod);
     }
 
-    private Coder<?> getCoder(Class<? extends Coder<?>> clazz) {
-        Class<?>[] ancestorWithGenerics = getAccessibleAncestorWithGenerics(clazz);
-        Class<?> coderClass = ancestorWithGenerics[0];
-        Class<?> genericType = ancestorWithGenerics[1];
-        Method[] methods = getCoderMethods(coderClass, genericType);
-        this.coderClassToMethods.put(clazz, methods);
+    private Coder<?> getCoder(Class<? extends Coder<?>> coderProgeny, Class<?>[] coderAncestor) {
+        Class<?> ancestralCoderClass = coderAncestor[0];
+        Class<?> genericType = coderAncestor[1];
+        Method[] methods = getEncodingMethods(ancestralCoderClass, genericType);
+        this.coderClassToMethods.put(coderProgeny, methods);
 
-        Coder<?> coder = instantiate(clazz);
-        this.coderInstancePool.put(clazz, coder);
+        Coder<?> coder = instantiate(coderProgeny);
+        this.coderInstancePool.put(coderProgeny, coder);
 
         return coder;
     }
 
-    private Class<?>[] getAccessibleAncestorWithGenerics(Class<?> clazz) {
+    private Class<?>[] getCoderAncestor(Class<?> clazz) {
         Class<?> baseCoderType = null;
         Class<?> genericType = null;
 
@@ -105,16 +113,17 @@ public final class CoderManager {
         }
 
         // The baseCoderType is the original parent in the hierarchy directly descended from Coder<T> whose encode and decode methods that are accessible via Reflection.
-        return new Class<?>[]{ baseCoderType, genericType };
+        return new Class<?>[] { baseCoderType, genericType };
     }
 
-    private Method[] getCoderMethods(Class<?> clazz, Class<?> genericType) {
+    private Method[] getEncodingMethods(Class<?> clazz, Class<?> genericType) {
         try {
             Method encodeMethod = clazz.getDeclaredMethod("encode", genericType);
             Method decodeMethod = clazz.getDeclaredMethod("decode", byte[].class);
 
             return new Method[] { encodeMethod, decodeMethod };
         } catch (NoSuchMethodException e) {
+            // Highly unlikely to occur since the language enforces the method contract for implemented interfaces.
             throw new CoderInstantiationException("Serialization methods are missing for the coder type <" + clazz.getName() + "> .", e);
         }
     }
@@ -125,34 +134,57 @@ public final class CoderManager {
         try {
             return clazz.getDeclaredConstructor(EncoderFactory.class).newInstance(encoderFactory);
         }  catch (InstantiationException | IllegalAccessException | NoSuchMethodException e) {
-            throw new CoderInstantiationException("Failed to instantiate the coder <" + clazz.getName() +">. Ensure that the class is concrete and features a publicly accessible constructor that accepts only an EncoderFactory argument is present.");
+            throw new CoderInstantiationException("No publicly accessible constructor that only accepts EncoderFactory as argument was found for <" + clazz.getName() + ">.");
         } catch (InvocationTargetException e) {
-            throw new CoderInstantiationException("The constructor for the coder <" + clazz.getName() + "> threw an exception.", e);
+            throw new CoderInstantiationException("The constructor for <" + clazz.getName() + "> threw an exception.", e);
         }
     }
 
-    static final class CoderReflectionData {
-        private final Coder<?> coder;
+    public static final class CoderReflectionData {
 
-        private final Method encodeMethod;
+        private Coder<?> coder;
 
-        private final Method decodeMethod;
+        private Class<?> genericType;
 
-        private CoderReflectionData(Coder<?> coder, Method encodeMethod, Method decodeMethod) {
+        private Method encodeMethod;
+
+        private Method decodeMethod;
+
+        private CoderReflectionData() {}
+
+        private CoderReflectionData withCoder(Coder<?> coder) {
             this.coder = coder;
-            this.encodeMethod = encodeMethod;
-            this.decodeMethod = decodeMethod;
+            return this;
         }
 
-        public Coder<?> getCoder() {
+        private CoderReflectionData withGenericType(Class<?> genericType) {
+            this.genericType = genericType;
+            return this;
+        }
+
+        private CoderReflectionData withEncodeMethod(Method encodeMethod) {
+            this.encodeMethod = encodeMethod;
+            return this;
+        }
+
+        private CoderReflectionData withDecodeMethod(Method decodeMethod) {
+            this.decodeMethod = decodeMethod;
+            return this;
+        }
+
+        public Coder<?> coder() {
             return this.coder;
         }
 
-        public Method getEncodeMethod() {
+        public Class<?> genericType() {
+            return this.genericType;
+        }
+
+        public Method encodeMethod() {
             return this.encodeMethod;
         }
 
-        public Method getDecodeMethod() {
+        public Method decodeMethod() {
             return this.decodeMethod;
         }
     }
