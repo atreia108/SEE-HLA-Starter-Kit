@@ -1,17 +1,23 @@
 package org.see.skf.runtime;
 
+import org.see.skf.core.CoderManager;
 import org.see.skf.core.annotations.Attribute;
 import org.see.skf.core.annotations.InteractionClass;
 import org.see.skf.core.annotations.ObjectClass;
 import org.see.skf.core.annotations.Parameter;
 import org.see.skf.encoding.Coder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashSet;
 import java.util.Set;
 
 public final class SKAnnotatedTypeParser {
+
+    private static final Logger logger = LoggerFactory.getLogger(SKAnnotatedTypeParser.class);
 
     private final CoderManager coderManager;
 
@@ -48,8 +54,8 @@ public final class SKAnnotatedTypeParser {
                 Attribute attribute = field.getAnnotation(Attribute.class);
                 if (attribute != null) {
                     Trait t = new Trait(field)
+                            .forObject(parseableObject)
                             .withName(attribute.name())
-                            .ofClass(clazz)
                             .withCoder(attribute.coder());
 
                     objectClassStructure.add(t);
@@ -94,8 +100,8 @@ public final class SKAnnotatedTypeParser {
                 Parameter parameter = field.getAnnotation(Parameter.class);
                 if (parameter != null) {
                     Trait t = new Trait(field)
+                            .forObject(parseableObject)
                             .withName(parameter.name())
-                            .ofClass(clazz)
                             .withCoder(parameter.coder());
 
                     interactionClassStructure.add(t);
@@ -158,15 +164,23 @@ public final class SKAnnotatedTypeParser {
 
         private String name;
 
-        private Method[] accessors;
+        private Object targetObject;
 
-        private CoderManager.CoderReflectionData coderReflectionData;
+        private Method getter;
+
+        private Method setter;
+
+        private Coder<?> coder;
+
+        private Method encode;
+
+        private Method decode;
 
         Trait(Field field) {
             this.field = field;
         }
 
-        private Method[] retrieveAccessors(Class<?> clazz) {
+        private void retrieveAccessors(Class<?> clazz) {
             String fieldName = field.getName();
             Class<?> fieldType = field.getType();
             String capitalizedFieldName = capitalize(fieldName);
@@ -178,7 +192,8 @@ public final class SKAnnotatedTypeParser {
                 Method getterMethod = clazz.getDeclaredMethod(getterName);
                 Method setterMethod = clazz.getDeclaredMethod(setterName, fieldType);
 
-                return new Method[] { getterMethod, setterMethod };
+                this.getter = getterMethod;
+                this.setter = setterMethod;
             } catch (NoSuchMethodException e) {
                 throw new AnnotationParseException("The field <" + fieldName + "> either lacks one or more accessor (getter/setter) methods or these methods do not operate with the field's type <" + fieldType + ">.", e);
             }
@@ -193,39 +208,56 @@ public final class SKAnnotatedTypeParser {
             return this;
         }
 
-        private Trait ofClass(Class<?> clazz) {
-            this.accessors = retrieveAccessors(clazz);
+        private Trait forObject(Object targetObject) {
+            this.targetObject = targetObject;
+            Class<?> clazz = targetObject.getClass();
+            retrieveAccessors(clazz);
+
             return this;
         }
 
         private Trait withCoder(Class<? extends Coder<?>> clazz) {
-            this.coderReflectionData = coderManager.get(clazz);
+            CoderManager.CoderReflectionData coderReflectionData = coderManager.get(clazz);
 
             Class<?> fieldType = field.getType();
-            Class<?> genericType = this.coderReflectionData.genericType();
+            Class<?> genericType = coderReflectionData.genericType();
 
             if (!fieldType.equals(genericType)) {
                 String fieldName = field.getName();
                 throw new AnnotationParseException("Field <" + fieldName + "> expected a coder for type <" + fieldType + "> but got <" + genericType + "> instead.");
             }
 
+            this.coder = coderReflectionData.coder();
+            this.encode = coderReflectionData.encodeMethod();
+            this.decode = coderReflectionData.decodeMethod();
+
             return this;
         }
 
-        public String name() {
+        public String getName() {
             return this.name;
         }
 
-        public Method getter() {
-            return this.accessors[0];
+        byte[] encode() {
+            try {
+                Object currentValue = getter.invoke(targetObject);
+                if (currentValue == null) {
+                    logger.warn("The field <{}> has a NULL value and is liable to cause an exception during serialization.", field.getName());
+                }
+
+                return (byte[]) encode.invoke(coder, currentValue);
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new SerializationException("Values could not be encoded for <" + this.name + ">. Ensure that the field has been properly initialized.", e);
+            }
         }
 
-        public Method setter() {
-            return this.accessors[1];
-        }
-
-        public Coder<?> coder() {
-            return this.coderReflectionData.coder();
+        void decode(byte[] data) {
+            try {
+                Object decodedValue = decode.invoke(coder, data);
+                setter.invoke(targetObject, decodedValue);
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new SerializationException("Values could not be decoded for <" + this.name + ">.", e);
+            }
         }
     }
 }

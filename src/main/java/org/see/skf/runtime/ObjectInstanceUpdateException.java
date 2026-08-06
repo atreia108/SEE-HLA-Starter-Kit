@@ -1,0 +1,16 @@
+package org.see.skf.runtime;
+
+public final class ObjectInstanceUpdateException extends Exception {
+
+    public ObjectInstanceUpdateException(String message) {
+        super(message);
+    }
+
+    public ObjectInstanceUpdateException(String message, Throwable cause) {
+        super(message, cause);
+    }
+
+    public ObjectInstanceUpdateException(Throwable cause) {
+        super(cause);
+    }
+}

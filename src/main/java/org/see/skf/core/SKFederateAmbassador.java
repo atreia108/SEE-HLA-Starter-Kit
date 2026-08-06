@@ -29,9 +29,7 @@ package org.see.skf.core;
 import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.FederateInternalError;
 import hla.rti1516_2025.time.LogicalTime;
-import org.see.skf.runtime.HLAClassManager;
-import org.see.skf.runtime.HLAObjectInstanceManager;
-import org.see.skf.runtime.SKAnnotatedTypeParser;
+import org.see.skf.callbacks.HLACallbackManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,16 +39,16 @@ import java.util.concurrent.CopyOnWriteArraySet;
 final class SKFederateAmbassador extends NullFederateAmbassador {
     private static final Logger logger = LoggerFactory.getLogger(SKFederateAmbassador.class);
 
-    private final HLAClassManager classManager;
-    private final HLAObjectInstanceManager objectInstanceManager;
+    private final HLACallbackManager callbackManager;
+    private final HLAObjectManager objectManager;
 
-
+    // TODO - Shift out to another manager object instead of storing it here. The SKFederateAmbassador should at most only consume other managers.
     private final Set<ObjectInstanceListener> objectInstanceListeners;
     private final Set<InteractionListener> interactionListeners;
 
-    SKFederateAmbassador(HLAClassManager classManager, HLAObjectInstanceManager objectInstanceManager) {
-        this.classManager = classManager;
-        this.objectInstanceManager = objectInstanceManager;
+    SKFederateAmbassador(SKFederate federate) {
+        this.callbackManager = federate.getCallbackManager();
+        this.objectManager = federate.getObjectManager();
 
         this.objectInstanceListeners = new CopyOnWriteArraySet<>();
         this.interactionListeners = new CopyOnWriteArraySet<>();
@@ -78,12 +76,12 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
     @Override
     public void objectInstanceNameReservationSucceeded(String objectInstanceName) throws FederateInternalError {
-
+        this.callbackManager.completeNameReservationCallback(objectInstanceName, true);
     }
 
     @Override
     public void objectInstanceNameReservationFailed(String objectInstanceName) throws FederateInternalError {
-
+        this.callbackManager.completeNameReservationCallback(objectInstanceName, false);
     }
 
     @Override

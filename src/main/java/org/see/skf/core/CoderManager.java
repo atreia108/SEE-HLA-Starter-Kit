@@ -24,11 +24,11 @@
  If not, see http://http://www.gnu.org/licenses/
  *****************************************************************/
 
-package org.see.skf.runtime;
+package org.see.skf.core;
 
 import hla.rti1516_2025.encoding.EncoderFactory;
-import org.see.skf.core.SKUtilityFactory;
 import org.see.skf.encoding.Coder;
+import org.see.skf.runtime.CoderInstantiationException;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -52,7 +52,7 @@ public final class CoderManager {
         this.coderClassToMethods = new HashMap<>();
     }
 
-    CoderReflectionData get(Class<? extends Coder<?>> clazz) {
+    public CoderReflectionData get(Class<? extends Coder<?>> clazz) {
         if (clazz == null) {
             throw new NullPointerException("Can't fetch coder instance for NULL.");
         }

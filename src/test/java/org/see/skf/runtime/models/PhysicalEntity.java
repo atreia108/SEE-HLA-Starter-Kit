@@ -33,6 +33,7 @@ public class PhysicalEntity {
         this.status = "";
         this.parentReferenceFrame = "";
         this.acceleration = new Vector3();
+        this.centerOfMass = new Vector3();
     }
 
     public String getName() {

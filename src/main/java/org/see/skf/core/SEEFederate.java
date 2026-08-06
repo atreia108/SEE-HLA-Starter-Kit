@@ -19,6 +19,15 @@ public abstract class SEEFederate extends SKFederate {
         // declareObjectInstances();
         // TODO - Wait for all required objects to be discovered.
         // setupTimeManagement();
+
+        try {
+            while (true) {
+                update();
+                Thread.sleep(1000L);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void initializeExCO() {

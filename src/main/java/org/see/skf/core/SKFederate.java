@@ -32,8 +32,10 @@ import hla.rti1516_2025.ResignAction;
 import hla.rti1516_2025.RtiConfiguration;
 import hla.rti1516_2025.exceptions.*;
 
-import org.see.skf.runtime.HLAClassManager;
-import org.see.skf.runtime.HLAObjectInstanceManager;
+import org.see.skf.callbacks.HLACallbackManager;
+import org.see.skf.runtime.ObjectInstanceCreationException;
+import org.see.skf.runtime.ObjectInstanceUpdateException;
+import org.see.skf.runtime.SKAnnotatedTypeParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,8 +53,10 @@ public abstract class SKFederate {
     private final String[] additionalFomModules;
     private final SKFederateAmbassador federateAmbassador;
 
-    private final HLAClassManager classManager;
-    private final HLAObjectInstanceManager instanceManager;
+    private final HLACallbackManager callbackManager;
+    private final HLAObjectManager objectManager;
+    private final CoderManager coderManager;
+
     // private final SimulationTime simTime;
 
     protected SKFederate(File configurationFile) {
@@ -65,11 +69,19 @@ public abstract class SKFederate {
         this.rtiConfiguration
                 = RtiConfiguration.createConfiguration()
                 .withRtiAddress(config.rtiAddress());
+
         this.rtiAmbassador = SKUtilityFactory.INSTANCE.getRtiAmbassador();
 
-        this.classManager = new HLAClassManager();
-        this.instanceManager = new HLAObjectInstanceManager(new HLACallbackManager());
-        this.federateAmbassador = new SKFederateAmbassador(classManager, instanceManager);
+        // TODO - Add maxThreads param to config.
+        // Initialize all manager objects first.
+        this.callbackManager = new HLACallbackManager(32);
+        this.coderManager = new CoderManager();
+
+        SKAnnotatedTypeParser parser = new SKAnnotatedTypeParser(this.coderManager);
+        this.objectManager = new HLAObjectManager(this.callbackManager, parser);
+        // TODO: this.interactionManager = new HLAInteractionManager(parser);
+
+        this.federateAmbassador = new SKFederateAmbassador(this);
 
         connectToRTI();
         joinFederationExecution();
@@ -82,10 +94,6 @@ public abstract class SKFederate {
         configureAndStart();
     }
 
-    /**
-     * TODO
-     *
-     */
     private void connectToRTI() {
         String rtiAddress = rtiConfiguration.rtiAddress();
 
@@ -101,17 +109,12 @@ public abstract class SKFederate {
         }
     }
 
-    /**
-     * TODO
-     *
-     */
     private void joinFederationExecution() {
         String originalFederateName = federateName;
         String suffix = "";
         boolean joined = false;
         int attempts = 1;
 
-        // TODO - Consider if an upper bound should be placed on the number of attempts the federate will entertain for joining a federation execution.
         while (!joined) {
             try {
                 attemptJoin();
@@ -146,53 +149,43 @@ public abstract class SKFederate {
         }
     }
 
-    public final void shutdownExecution() throws FederateShutdownInterruptedException {
+    public final void shutdownExecution() throws FederateShutdownException {
         try {
             rtiAmbassador.resignFederationExecution(ResignAction.DELETE_OBJECTS_THEN_DIVEST);
         } catch (OwnershipAcquisitionPending | FederateOwnsAttributes e) {
-            throw new FederateShutdownInterruptedException("Federate shutdown attempt was interrupted by ongoing processes that are yet to be completed.", e);
+            throw new FederateShutdownException("Federate shutdown attempt was interrupted by ongoing processes that are yet to be completed.", e);
         } catch (FederateNotExecutionMember | NotConnected | CallNotAllowedFromWithinCallback | InvalidResignAction |
                  RTIinternalError e) {
-            throw new FederateShutdownFailedException("Failed to shutdown federate.", e);
+            throw new FederateShutdownException(e);
         }
     }
 
-    public final void publishObjectClass(String className, String... attributeNames) throws PublishException {
-        try {
-            this.classManager.publishObjectClass(className, attributeNames);
-        } catch (FederateNotExecutionMember | NotConnected | AttributeNotDefined | ObjectClassNotDefined |
-                 RestoreInProgress | RTIinternalError | SaveInProgress e) {
-            throw new PublishException("Unable to publish the object class <" + className + ">.", e);
-        }
+    public final void publishObjectClass(String className, String... attributeNames) throws HLAClassDeclarationException {
+        this.objectManager.publishObjectClass(className, attributeNames);
     }
 
     public final void unpublishObjectClass(String className, String... attributes) {
         // TODO
     }
 
-    public final void subscribeObjectClass(String className, String... attributeNames) {
-        try {
-            classManager.subscribeObjectClass(className, attributeNames);
-        } catch (FederateNotExecutionMember | AttributeNotDefined | ObjectClassNotDefined | RestoreInProgress |
-                 NotConnected | RTIinternalError | SaveInProgress e) {
-            throw new SubscribeException("Unable to subscribe the object class <" + className + ">.", e);
-        }
+    public final void subscribeObjectClass(String className, String... attributeNames) throws HLAClassDeclarationException {
+        this.objectManager.subscribeObjectClass(className, attributeNames);
     }
 
     public final void unsubscribeObjectClass(String className, String... attributes) {
         // TODO
     }
 
-    public final void createObjectInstance(Object objectInstance) {
-        // TODO
+    public final void createObjectInstance(Object objectInstance) throws ObjectInstanceCreationException {
+        this.objectManager.registerObjectInstance(objectInstance, null);
     }
 
-    public final void createObjectInstance(Object objectInstance, String name) {
-        // TODO
+    public final void createObjectInstance(Object objectInstance, String name) throws ObjectInstanceCreationException {
+        this.objectManager.registerObjectInstance(objectInstance, name);
     }
 
-    public final void updateObjectInstance(Object objectInstance, String... attributes) {
-        // TODO
+    public final void updateObjectInstance(Object objectInstance, String... attributes) throws ObjectInstanceUpdateException {
+        this.objectManager.updateAttributeValues(objectInstance, attributes);
     }
 
     public final void destroyObjectInstance(Object objectInstance) {
@@ -203,16 +196,6 @@ public abstract class SKFederate {
         // TODO - Enable time regulation and constraint for messages, then compute and advance to HLTB.
         // simTime.regulateTime();
         // simTime.constrainTime();
-    }
-
-    // TODO - Object instance creation w/o name.
-    public void createObjectInstance() {
-
-    }
-
-    // TODO - Object instance creation w/ name.
-    public void createObjectInstance(String name) {
-
     }
 
     // TODO - Object instance deletion.
@@ -236,5 +219,13 @@ public abstract class SKFederate {
     public final synchronized double getSimulationTime() {
         // return simTime.getTJDTime();
         return 0.0;
+    }
+
+    HLACallbackManager getCallbackManager() {
+        return this.callbackManager;
+    }
+
+    HLAObjectManager getObjectManager() {
+        return this.objectManager;
     }
 }

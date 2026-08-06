@@ -23,9 +23,9 @@ public final class HLAInteractionClass {
         try {
             this.handle = rtiAmbassador.getInteractionClassHandle(name);
         } catch (NameNotFound e) {
-            throw new RtiHandleRetrievalException("<" + name + "> is not a valid interaction class in the FOM for this federation execution. Re-check name element in the @InteractionClass annotation.");
+            throw new RtiHandleException("<" + name + "> is not a valid interaction class in the FOM for this federation execution. Re-check name element in the @InteractionClass annotation.");
         } catch (FederateNotExecutionMember | NotConnected | RTIinternalError e) {
-            throw new RtiHandleRetrievalException(e);
+            throw new RtiHandleException(e);
         }
 
         this.name = name;

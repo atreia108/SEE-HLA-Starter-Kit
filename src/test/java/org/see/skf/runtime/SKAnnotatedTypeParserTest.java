@@ -1,6 +1,7 @@
 package org.see.skf.runtime;
 
 import org.junit.jupiter.api.Test;
+import org.see.skf.core.CoderManager;
 import org.see.skf.core.annotations.Attribute;
 import org.see.skf.core.annotations.InteractionClass;
 import org.see.skf.core.annotations.ObjectClass;
@@ -118,7 +119,7 @@ class SKAnnotatedTypeParserTest {
         boolean found = false;
 
         for (SKAnnotatedTypeParser.Trait t : traits) {
-            if (t.name().equals(name)) {
+            if (t.getName().equals(name)) {
                 found = true;
                 break;
             }
