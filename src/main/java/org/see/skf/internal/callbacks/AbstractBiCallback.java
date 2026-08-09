@@ -1,4 +1,4 @@
-package org.see.skf.callbacks;
+package org.see.skf.internal.callbacks;
 
 import java.util.concurrent.FutureTask;
 

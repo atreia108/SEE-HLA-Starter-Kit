@@ -29,10 +29,11 @@ package org.see.skf.runtime;
 import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import org.junit.jupiter.api.Test;
-import org.see.skf.core.CoderManager;
+import org.see.skf.internal.runtime.CoderManager;
 import org.see.skf.encoding.Coder;
 import org.see.skf.encoding.HLAbooleanCoder;
 import org.see.skf.encoding.HLAunicodeStringCoder;
+import org.see.skf.internal.runtime.CoderInstantiationException;
 
 import java.lang.reflect.Method;
 

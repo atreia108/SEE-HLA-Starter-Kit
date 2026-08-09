@@ -45,12 +45,14 @@ final class SKFederateConfiguration {
     private static final String FEDERATE_TYPE_PROPERTY = "federateType";
     private static final String LOOKAHEAD_PROPERTY = "lookahead";
     private static final String FOM_DIRECTORY_PROPERTY = "fomDirectory";
+    private static final String MAX_THREADS = "maxThreads";
 
     private final String rtiAddress;
     private final String federationName;
     private final String federateName;
     private final String federateType;
-    private final long lookahead;
+    private long lookahead;
+    private int maxThreads;
 
     private final String[] additionalFomModules;
 
@@ -70,12 +72,18 @@ final class SKFederateConfiguration {
 
         validateStringTypeProperties();
 
-        // No further validations required for lookahead and (potentially) federateProtocolMode properties since the
-        // following effectively guarantees that they are non-null.
+        boolean blameMaxThreadsParam = false;
         try {
             this.lookahead = Long.parseLong(configProperties.getProperty(LOOKAHEAD_PROPERTY));
+            blameMaxThreadsParam = true;
+            this.maxThreads = Integer.parseInt(configProperties.getProperty(MAX_THREADS));
         } catch (NumberFormatException e) {
-            throw new InvalidFederateConfigurationException("Value for <lookahead> property is not an integer.", e);
+            if (!blameMaxThreadsParam) {
+                throw new InvalidFederateConfigurationException("Invalid value for <lookahead> property.", e);
+            } else {
+                this.maxThreads = 32;
+                logger.warn("Invalid value for <maxThreads> property. Assuming framework-default of 32 maximum threads for use by federate.");
+            }
         }
 
         String fomDir = configProperties.getProperty(FOM_DIRECTORY_PROPERTY);
@@ -87,7 +95,7 @@ final class SKFederateConfiguration {
         // users will follow these instructions and there won't be a point in keeping this around post-v2.1.
         warnAboutDeprecatedProperties(configProperties);
 
-        logger.debug("Finished loading configuration properties for <{}>.", federateName);
+        logger.debug("Finished loading configuration properties for <{}>.", this.federateName);
     }
 
     private String[] loadFomModules(String path) {
@@ -163,6 +171,10 @@ final class SKFederateConfiguration {
 
     public long lookahead() {
         return lookahead;
+    }
+
+    public int maxThreads() {
+        return maxThreads;
     }
 
     public String[] additionalFomModules() {

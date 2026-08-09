@@ -1,4 +1,4 @@
-package org.see.skf.runtime;
+package org.see.skf.internal.runtime;
 
 final class HLAInteractionData {
 

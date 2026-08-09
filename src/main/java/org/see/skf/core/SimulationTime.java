@@ -19,7 +19,7 @@ final class SimulationTime {
 
     SimulationTime(long lookAhead) {
         try {
-            rtiAmbassador = SKUtilityFactory.INSTANCE.getRtiAmbassador();
+            rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
             rtiAmbassador.getTimeFactory();
         } catch (FederateNotExecutionMember | NotConnected e) {
             throw new FederateStartupException("Failed to procure TimeFactory instance from RTI ambassador for time management.", e);

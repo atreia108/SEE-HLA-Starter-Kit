@@ -1,5 +1,5 @@
 package org.see.skf.core;
 
-interface InteractionListener {
-    void received(Object interaction);
+public interface InteractionListener {
+    void received(Object interaction, String federateName);
 }

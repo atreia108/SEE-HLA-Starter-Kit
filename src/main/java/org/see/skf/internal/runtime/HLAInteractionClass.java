@@ -1,4 +1,4 @@
-package org.see.skf.runtime;
+package org.see.skf.internal.runtime;
 
 import hla.rti1516_2025.InteractionClassHandle;
 import hla.rti1516_2025.RTIambassador;
@@ -6,7 +6,7 @@ import hla.rti1516_2025.exceptions.FederateNotExecutionMember;
 import hla.rti1516_2025.exceptions.NameNotFound;
 import hla.rti1516_2025.exceptions.NotConnected;
 import hla.rti1516_2025.exceptions.RTIinternalError;
-import org.see.skf.core.SKUtilityFactory;
+import org.see.skf.core.HLAUtilityFactory;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -18,7 +18,7 @@ public final class HLAInteractionClass {
     private final AtomicBoolean subscribed;
 
     public HLAInteractionClass(String name) {
-        RTIambassador rtiAmbassador = SKUtilityFactory.INSTANCE.getRtiAmbassador();
+        RTIambassador rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
 
         try {
             this.handle = rtiAmbassador.getInteractionClassHandle(name);

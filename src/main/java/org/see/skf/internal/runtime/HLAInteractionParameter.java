@@ -1,4 +1,4 @@
-package org.see.skf.runtime;
+package org.see.skf.internal.runtime;
 
 import hla.rti1516_2025.ParameterHandle;
 

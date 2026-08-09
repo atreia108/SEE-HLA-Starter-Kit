@@ -14,13 +14,13 @@ public class HLAfloat64LECoder implements Coder<Double> {
 
     @Override
     public byte[] encode(Double data) {
-        float64LEType.setValue(data);
-        return float64LEType.toByteArray();
+        this.float64LEType.setValue(data);
+        return this.float64LEType.toByteArray();
     }
 
     @Override
     public Double decode(byte[] data) throws DecoderException {
-        float64LEType.decode(data);
-        return float64LEType.getValue();
+        this.float64LEType.decode(data);
+        return this.float64LEType.getValue();
     }
 }

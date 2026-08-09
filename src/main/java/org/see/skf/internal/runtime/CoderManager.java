@@ -24,11 +24,11 @@
  If not, see http://http://www.gnu.org/licenses/
  *****************************************************************/
 
-package org.see.skf.core;
+package org.see.skf.internal.runtime;
 
 import hla.rti1516_2025.encoding.EncoderFactory;
+import org.see.skf.core.HLAUtilityFactory;
 import org.see.skf.encoding.Coder;
-import org.see.skf.runtime.CoderInstantiationException;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -129,7 +129,7 @@ public final class CoderManager {
     }
 
     private Coder<?> instantiate(Class<? extends Coder<?>> clazz) {
-        EncoderFactory encoderFactory = SKUtilityFactory.INSTANCE.getEncoderFactory();
+        EncoderFactory encoderFactory = HLAUtilityFactory.INSTANCE.getEncoderFactory();
 
         try {
             return clazz.getDeclaredConstructor(EncoderFactory.class).newInstance(encoderFactory);

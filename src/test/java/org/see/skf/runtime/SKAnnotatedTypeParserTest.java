@@ -1,13 +1,15 @@
 package org.see.skf.runtime;
 
 import org.junit.jupiter.api.Test;
-import org.see.skf.core.CoderManager;
+import org.see.skf.internal.runtime.CoderManager;
 import org.see.skf.core.annotations.Attribute;
 import org.see.skf.core.annotations.InteractionClass;
 import org.see.skf.core.annotations.ObjectClass;
 import org.see.skf.core.annotations.Parameter;
 import org.see.skf.encoding.HLAbooleanCoder;
 import org.see.skf.encoding.HLAunicodeStringCoder;
+import org.see.skf.internal.runtime.AnnotationParseException;
+import org.see.skf.internal.runtime.SKAnnotatedTypeParser;
 import org.see.skf.runtime.models.DynamicalEntity;
 import org.see.skf.runtime.models.PhysicalEntity;
 import org.see.skf.runtime.models.ReferenceFrame;

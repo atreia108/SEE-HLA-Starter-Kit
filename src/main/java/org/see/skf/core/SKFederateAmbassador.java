@@ -29,46 +29,47 @@ package org.see.skf.core;
 import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.FederateInternalError;
 import hla.rti1516_2025.time.LogicalTime;
-import org.see.skf.callbacks.HLACallbackManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
+import org.see.skf.internal.FederateMapping;
+import org.see.skf.internal.runtime.HLAObjectManager;
+import org.see.skf.internal.callbacks.HLACallbackManager;
 
 final class SKFederateAmbassador extends NullFederateAmbassador {
-    private static final Logger logger = LoggerFactory.getLogger(SKFederateAmbassador.class);
 
+    private final FederateMapping federateMapping;
     private final HLACallbackManager callbackManager;
     private final HLAObjectManager objectManager;
 
-    // TODO - Shift out to another manager object instead of storing it here. The SKFederateAmbassador should at most only consume other managers.
-    private final Set<ObjectInstanceListener> objectInstanceListeners;
-    private final Set<InteractionListener> interactionListeners;
-
-    SKFederateAmbassador(SKFederate federate) {
-        this.callbackManager = federate.getCallbackManager();
-        this.objectManager = federate.getObjectManager();
-
-        this.objectInstanceListeners = new CopyOnWriteArraySet<>();
-        this.interactionListeners = new CopyOnWriteArraySet<>();
+    private SKFederateAmbassador(Builder builder) {
+        this.callbackManager = builder.callbackManager;
+        this.objectManager = builder.objectManager;
+        this.federateMapping = builder.federateMapping;
     }
 
     @Override
     public void discoverObjectInstance(ObjectInstanceHandle objectInstance, ObjectClassHandle objectClass, String objectInstanceName, FederateHandle producingFederate) throws FederateInternalError {
-
+        this.objectManager.remoteObjectInstanceDiscovered(objectInstance, objectInstanceName, objectClass);
+        this.federateMapping.add(producingFederate);
     }
 
     @Override
     public void reflectAttributeValues(ObjectInstanceHandle objectInstance, AttributeHandleValueMap attributeValues, byte[] userSuppliedTag, TransportationTypeHandle transportationType, FederateHandle producingFederate, RegionHandleSet optionalSentRegions) throws FederateInternalError {
-
+        if (this.objectManager.getObjectInstance(objectInstance) == null) {
+            this.callbackManager.completeReflectAttributeValueCallback(objectInstance, attributeValues);
+        } else {
+            this.objectManager.remoteObjectInstanceUpdate(objectInstance, attributeValues);
+        }
     }
 
     @Override
     public void reflectAttributeValues(ObjectInstanceHandle objectInstance, AttributeHandleValueMap attributeValues, byte[] userSuppliedTag, TransportationTypeHandle transportationType, FederateHandle producingFederate, RegionHandleSet optionalSentRegions, LogicalTime<?, ?> time, OrderType sentOrderType, OrderType receivedOrderType, MessageRetractionHandle optionalRetraction) throws FederateInternalError {
-
+        if (this.objectManager.getObjectInstance(objectInstance) == null) {
+            this.callbackManager.completeReflectAttributeValueCallback(objectInstance, attributeValues);
+        } else {
+            this.objectManager.remoteObjectInstanceUpdate(objectInstance, attributeValues);
+        }
     }
 
+    // TODO
     @Override
     public void provideAttributeValueUpdate(ObjectInstanceHandle objectInstance, AttributeHandleSet attributes, byte[] userSuppliedTag) throws FederateInternalError {
 
@@ -94,19 +95,36 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
     }
 
-    void addInteractionListener(InteractionListener listener) {
-        this.interactionListeners.add(listener);
-    }
+    static final class Builder {
 
-    void removeInteractionListener(InteractionListener listener) {
-        this.interactionListeners.remove(listener);
-    }
+        private HLACallbackManager callbackManager;
 
-    void addObjectInstanceListener(ObjectInstanceListener listener) {
-        this.objectInstanceListeners.add(listener);
-    }
+        private HLAObjectManager objectManager;
 
-    void removeObjectInstanceListener(ObjectInstanceListener listener) {
-        this.objectInstanceListeners.remove(listener);
+        private FederateMapping federateMapping;
+
+        Builder callbackManager(HLACallbackManager callbackManager) {
+            this.callbackManager = callbackManager;
+            return this;
+        }
+
+        Builder objectManager(HLAObjectManager objectManager) {
+            this.objectManager = objectManager;
+            return this;
+        }
+
+        Builder federateMapping(FederateMapping federateMapping) {
+            this.federateMapping = federateMapping;
+            return this;
+        }
+
+        SKFederateAmbassador build() {
+            if (callbackManager == null || objectManager == null || federateMapping == null) {
+                throw new IllegalStateException("One or more objects required for initializing SKFederateAmbassador are missing.");
+            }
+
+            return new SKFederateAmbassador(this);
+        }
+
     }
 }

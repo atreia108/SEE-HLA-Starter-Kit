@@ -1,4 +1,4 @@
-package org.see.skf.runtime;
+package org.see.skf.internal.runtime;
 
 public final class RtiHandleException extends RuntimeException {
     public RtiHandleException(String message) {

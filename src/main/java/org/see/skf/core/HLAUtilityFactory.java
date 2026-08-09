@@ -8,7 +8,7 @@ import hla.rti1516_2025.exceptions.RTIinternalError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public enum SKUtilityFactory {
+public enum HLAUtilityFactory {
     INSTANCE;
 
     private static final String FRAMEWORK_VERSION = "2.1.0";
@@ -16,10 +16,10 @@ public enum SKUtilityFactory {
     private final RTIambassador rtiAmbassador;
     private final EncoderFactory encoderFactory;
 
-    SKUtilityFactory() {
+    HLAUtilityFactory() {
         try {
             RtiFactory rtiFactory = RtiFactoryFactory.getRtiFactory();
-            Logger logger = LoggerFactory.getLogger(SKUtilityFactory.class);
+            Logger logger = LoggerFactory.getLogger(HLAUtilityFactory.class);
             rtiAmbassador = rtiFactory.getRtiAmbassador();
             encoderFactory = rtiFactory.getEncoderFactory();
 

@@ -1,6 +1,10 @@
-package org.see.skf.callbacks;
+package org.see.skf.internal.callbacks;
 
-final class NameReservationException extends RuntimeException {
+public final class NameReservationException extends RuntimeException {
+
+    public NameReservationException(Throwable cause) {
+        super(cause);
+    }
 
     public NameReservationException(String message) {
         super(message);

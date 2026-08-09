@@ -1,6 +1,5 @@
-package org.see.skf.runtime;
+package org.see.skf.internal.runtime;
 
-import org.see.skf.core.CoderManager;
 import org.see.skf.core.annotations.Attribute;
 import org.see.skf.core.annotations.InteractionClass;
 import org.see.skf.core.annotations.ObjectClass;
@@ -181,8 +180,8 @@ public final class SKAnnotatedTypeParser {
         }
 
         private void retrieveAccessors(Class<?> clazz) {
-            String fieldName = field.getName();
-            Class<?> fieldType = field.getType();
+            String fieldName = this.field.getName();
+            Class<?> fieldType = this.field.getType();
             String capitalizedFieldName = capitalize(fieldName);
 
             String getterName = "get" + capitalizedFieldName;

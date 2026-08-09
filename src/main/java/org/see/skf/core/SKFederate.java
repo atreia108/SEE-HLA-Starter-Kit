@@ -32,14 +32,18 @@ import hla.rti1516_2025.ResignAction;
 import hla.rti1516_2025.RtiConfiguration;
 import hla.rti1516_2025.exceptions.*;
 
-import org.see.skf.callbacks.HLACallbackManager;
-import org.see.skf.runtime.ObjectInstanceCreationException;
-import org.see.skf.runtime.ObjectInstanceUpdateException;
-import org.see.skf.runtime.SKAnnotatedTypeParser;
+import org.see.skf.internal.EventListenerManager;
+import org.see.skf.internal.FederateMapping;
+import org.see.skf.internal.runtime.*;
+import org.see.skf.internal.callbacks.HLACallbackManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.beans.PropertyChangeListener;
 import java.io.File;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public abstract class SKFederate {
     private static final Logger logger = LoggerFactory.getLogger(SKFederate.class);
@@ -53,35 +57,41 @@ public abstract class SKFederate {
     private final String[] additionalFomModules;
     private final SKFederateAmbassador federateAmbassador;
 
-    private final HLACallbackManager callbackManager;
+    private final EventListenerManager eventListenerManager;
     private final HLAObjectManager objectManager;
-    private final CoderManager coderManager;
 
     // private final SimulationTime simTime;
 
     protected SKFederate(File configurationFile) {
+        this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
+
         SKFederateConfiguration config = new SKFederateConfiguration(configurationFile);
         this.federateName = config.federateName();
         this.federateType = config.federateType();
         this.federationName = config.federationName();
         this.additionalFomModules = config.additionalFomModules();
+        this.rtiConfiguration = RtiConfiguration.createConfiguration().withRtiAddress(config.rtiAddress());
 
-        this.rtiConfiguration
-                = RtiConfiguration.createConfiguration()
-                .withRtiAddress(config.rtiAddress());
+        ExecutorService executor = Executors.newFixedThreadPool(config.maxThreads());
+        HLACallbackManager callbackManager = new HLACallbackManager(executor);
+        FederateMapping federateMapping = new FederateMapping(executor);
+        this.eventListenerManager = new EventListenerManager(executor);
 
-        this.rtiAmbassador = SKUtilityFactory.INSTANCE.getRtiAmbassador();
+        CoderManager coderManager = new CoderManager();
+        SKAnnotatedTypeParser parser = new SKAnnotatedTypeParser(coderManager);
 
-        // TODO - Add maxThreads param to config.
-        // Initialize all manager objects first.
-        this.callbackManager = new HLACallbackManager(32);
-        this.coderManager = new CoderManager();
+        this.objectManager = new HLAObjectManager.Builder()
+                .callbackManager(callbackManager)
+                .eventListenerManager(eventListenerManager)
+                .parser(parser)
+                .executor(executor)
+                .build();
 
-        SKAnnotatedTypeParser parser = new SKAnnotatedTypeParser(this.coderManager);
-        this.objectManager = new HLAObjectManager(this.callbackManager, parser);
-        // TODO: this.interactionManager = new HLAInteractionManager(parser);
-
-        this.federateAmbassador = new SKFederateAmbassador(this);
+        this.federateAmbassador = new SKFederateAmbassador.Builder()
+                .callbackManager(callbackManager)
+                .objectManager(this.objectManager)
+                .federateMapping(federateMapping)
+                .build();
 
         connectToRTI();
         joinFederationExecution();
@@ -192,6 +202,10 @@ public abstract class SKFederate {
         // TODO
     }
 
+    public final <T> Future<T> queryObjectInstance(T object, String name) {
+        return this.objectManager.remoteObjectInstanceQuery(object, name);
+    }
+
     public final void setupTimeManagement() {
         // TODO - Enable time regulation and constraint for messages, then compute and advance to HLTB.
         // simTime.regulateTime();
@@ -201,6 +215,30 @@ public abstract class SKFederate {
     // TODO - Object instance deletion.
     public void destroyObjectInstance() {
 
+    }
+
+    public void addObjectInstanceListener(ObjectInstanceListener objectInstanceListener) {
+        this.eventListenerManager.addObjectInstanceListener(objectInstanceListener);
+    }
+
+    public void removeObjectInstanceListener(ObjectInstanceListener objectInstanceListener) {
+        this.eventListenerManager.removeObjectInstanceListener(objectInstanceListener);
+    }
+
+    public void addInteractionListener(InteractionListener interactionListener) {
+        this.eventListenerManager.addInteractionListener(interactionListener);
+    }
+
+    public void removeInteractionListener(InteractionListener interactionListener) {
+        this.eventListenerManager.removeInteractionListener(interactionListener);
+    }
+
+    public void addPropertyChangeListener(Object objectInstance, PropertyChangeListener propertyChangeListener) {
+        // TODO
+    }
+
+    public void removePropertyChangeListener(Object objectInstance, PropertyChangeListener propertyChangeListener) {
+        // TODO
     }
 
     public abstract void configureAndStart();
@@ -219,13 +257,5 @@ public abstract class SKFederate {
     public final synchronized double getSimulationTime() {
         // return simTime.getTJDTime();
         return 0.0;
-    }
-
-    HLACallbackManager getCallbackManager() {
-        return this.callbackManager;
-    }
-
-    HLAObjectManager getObjectManager() {
-        return this.objectManager;
     }
 }

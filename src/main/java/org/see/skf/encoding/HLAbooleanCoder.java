@@ -40,13 +40,13 @@ public class HLAbooleanCoder implements Coder<Boolean> {
 
     @Override
     public byte[] encode(Boolean data) {
-        booleanType.setValue(data);
-        return booleanType.toByteArray();
+        this.booleanType.setValue(data);
+        return this.booleanType.toByteArray();
     }
 
     @Override
     public Boolean decode(byte[] bytes) throws DecoderException {
-        booleanType.decode(bytes);
-        return booleanType.getValue();
+        this.booleanType.decode(bytes);
+        return this.booleanType.getValue();
     }
 }

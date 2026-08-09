@@ -45,6 +45,7 @@ class SKFederateConfigurationTest {
     private static final String FEDERATE_NAME_PROPERTY = "federateName = Spaceport";
     private static final String FEDERATE_TYPE_PROPERTY = "federateType = Behavior";
     private static final String LOOKAHEAD_PROPERTY = "lookahead = 1000000";
+    private static final String MAX_THREADS_PROPERTY = "maxThreads = 16";
     private static final String FOM_DIRECTORY_PROPERTY = "fomDirectory = src/test/resources/foms";
 
     @Test
@@ -56,6 +57,7 @@ class SKFederateConfigurationTest {
         assertEquals("Spaceport", validConfig.federateName());
         assertEquals("Behavior", validConfig.federateType());
         assertEquals(1000000, validConfig.lookahead());
+        assertEquals(16, validConfig.maxThreads());
 
         assertTrue(configFomModulesAreValid(validConfigFile));
     }
@@ -108,10 +110,16 @@ class SKFederateConfigurationTest {
         writeLine(writer, LOOKAHEAD_PROPERTY);
         assertDoesNotThrow(() -> new SKFederateConfiguration(tempConfigFile));
 
+        copyAndRemoveLine(MAX_THREADS_PROPERTY, reader, writer, inputStream);
+        assertDoesNotThrow(() -> new SKFederateConfiguration(tempConfigFile));
+        writeLine(writer, MAX_THREADS_PROPERTY);
+        assertDoesNotThrow(() -> new SKFederateConfiguration(tempConfigFile));
+
         copyAndRemoveLine(FOM_DIRECTORY_PROPERTY, reader, writer, inputStream);
         assertEquals(0, new SKFederateConfiguration(tempConfigFile).additionalFomModules().length);
         writeLine(writer, FOM_DIRECTORY_PROPERTY);
         assertTrue(new SKFederateConfiguration(tempConfigFile).additionalFomModules().length > 0);
+
         assertTrue(configFomModulesAreValid(tempConfigFile));
 
         writer.close();

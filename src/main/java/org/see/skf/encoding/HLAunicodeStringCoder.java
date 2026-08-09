@@ -40,13 +40,13 @@ public class HLAunicodeStringCoder implements Coder<String> {
 
     @Override
     public byte[] encode(String data) {
-        stringType.setValue(data);
-        return stringType.toByteArray();
+        this.stringType.setValue(data);
+        return this.stringType.toByteArray();
     }
 
     @Override
     public String decode(byte[] bytes) throws DecoderException {
-        stringType.decode(bytes);
-        return stringType.getValue();
+        this.stringType.decode(bytes);
+        return this.stringType.getValue();
     }
 }
