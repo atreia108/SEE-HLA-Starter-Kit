@@ -57,7 +57,6 @@ public abstract class SKFederate {
     private final String[] additionalFomModules;
     private final SKFederateAmbassador federateAmbassador;
 
-    private final EventListenerManager eventListenerManager;
     private final HLAObjectManager objectManager;
 
     // private final SimulationTime simTime;
@@ -75,14 +74,12 @@ public abstract class SKFederate {
         ExecutorService executor = Executors.newFixedThreadPool(config.maxThreads());
         HLACallbackManager callbackManager = new HLACallbackManager(executor);
         FederateMapping federateMapping = new FederateMapping(executor);
-        this.eventListenerManager = new EventListenerManager(executor);
 
         CoderManager coderManager = new CoderManager();
         SKAnnotatedTypeParser parser = new SKAnnotatedTypeParser(coderManager);
 
         this.objectManager = new HLAObjectManager.Builder()
                 .callbackManager(callbackManager)
-                .eventListenerManager(eventListenerManager)
                 .parser(parser)
                 .executor(executor)
                 .build();
@@ -91,6 +88,7 @@ public abstract class SKFederate {
                 .callbackManager(callbackManager)
                 .objectManager(this.objectManager)
                 .federateMapping(federateMapping)
+                .executor(executor)
                 .build();
 
         connectToRTI();
@@ -217,28 +215,32 @@ public abstract class SKFederate {
 
     }
 
+    // TODO
     public void addObjectInstanceListener(ObjectInstanceListener objectInstanceListener) {
-        this.eventListenerManager.addObjectInstanceListener(objectInstanceListener);
+
     }
 
+    // TODO
     public void removeObjectInstanceListener(ObjectInstanceListener objectInstanceListener) {
-        this.eventListenerManager.removeObjectInstanceListener(objectInstanceListener);
+
     }
 
+    // TODO
     public void addInteractionListener(InteractionListener interactionListener) {
-        this.eventListenerManager.addInteractionListener(interactionListener);
+
     }
 
+    // TODO
     public void removeInteractionListener(InteractionListener interactionListener) {
-        this.eventListenerManager.removeInteractionListener(interactionListener);
+
     }
 
-    public void addPropertyChangeListener(Object objectInstance, PropertyChangeListener propertyChangeListener) {
-        // TODO
+    public void addPropertyChangeListener(Object objectInstance, String propertyName, PropertyChangeListener propertyChangeListener) {
+        this.objectManager.addPropertyChangeListener(objectInstance, propertyName, propertyChangeListener);
     }
 
-    public void removePropertyChangeListener(Object objectInstance, PropertyChangeListener propertyChangeListener) {
-        // TODO
+    public void removePropertyChangeListener(Object objectInstance, String propertyName, PropertyChangeListener propertyChangeListener) {
+        this.objectManager.addPropertyChangeListener(objectInstance, propertyName, propertyChangeListener);
     }
 
     public abstract void configureAndStart();

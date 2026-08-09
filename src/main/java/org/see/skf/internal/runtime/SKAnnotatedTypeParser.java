@@ -54,6 +54,7 @@ public final class SKAnnotatedTypeParser {
                 if (attribute != null) {
                     Trait t = new Trait(field)
                             .forObject(parseableObject)
+                            .forClass(clazz)
                             .withName(attribute.name())
                             .withCoder(attribute.coder());
 
@@ -100,6 +101,7 @@ public final class SKAnnotatedTypeParser {
                 if (parameter != null) {
                     Trait t = new Trait(field)
                             .forObject(parseableObject)
+                            .forClass(clazz)
                             .withName(parameter.name())
                             .withCoder(parameter.coder());
 
@@ -209,9 +211,11 @@ public final class SKAnnotatedTypeParser {
 
         private Trait forObject(Object targetObject) {
             this.targetObject = targetObject;
-            Class<?> clazz = targetObject.getClass();
-            retrieveAccessors(clazz);
+            return this;
+        }
 
+        private Trait forClass(Class<?> clazz) {
+            retrieveAccessors(clazz);
             return this;
         }
 
@@ -250,10 +254,13 @@ public final class SKAnnotatedTypeParser {
             }
         }
 
-        void decode(byte[] data) {
+        Object[] decode(byte[] data) {
             try {
-                Object decodedValue = decode.invoke(coder, data);
-                setter.invoke(targetObject, decodedValue);
+                Object oldValue = getter.invoke(targetObject);
+                Object newValue = decode.invoke(coder, data);
+                setter.invoke(targetObject, newValue);
+
+                return new Object[] { oldValue, newValue };
             } catch (IllegalAccessException | InvocationTargetException e) {
                 throw new SerializationException("Values could not be decoded for <" + this.name + ">.", e);
             }

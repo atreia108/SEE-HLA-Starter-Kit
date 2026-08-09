@@ -6,9 +6,12 @@ import org.see.skf.core.HLAUtilityFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 public final class HLAObjectInstance {
@@ -27,6 +30,8 @@ public final class HLAObjectInstance {
 
     private final AttributeHandleSet cachedAttributeHandleSet;
 
+    private PropertyChangeSupport propertyChangeSupport;
+
     private Object instance;
 
     private final Map<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> traitToClassAttribute;
@@ -43,7 +48,7 @@ public final class HLAObjectInstance {
         this.cachedAttributeHandleValueMap = createAttributeHandleValueMap(count);
         this.cachedAttributeHandleSet = createAttributeHandleSet();
 
-        this.traitToClassAttribute = new HashMap<>();
+        this.traitToClassAttribute = new ConcurrentHashMap<>();
         computeTraitToAttributeAssociation(builder.traits);
     }
 
@@ -113,19 +118,18 @@ public final class HLAObjectInstance {
         return this.cachedAttributeHandleValueMap;
     }
 
-    // TODO
     private void deserialize() {
         if (this.instance != null && !this.traitToClassAttribute.isEmpty()) {
-            this.traitToClassAttribute.forEach((t, a) -> {
-                AttributeHandle attributeHandle = a.getHandle();
-                Map.Entry<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> traitToAttribute = getTraitToAttributeEntry(attributeHandle);
+           this.cachedAttributeHandleValueMap.forEach((attributeHandle,byteValue) -> {
+               Map.Entry<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> traitToAttribute = getTraitToAttributeEntry(attributeHandle);
 
-                if (traitToAttribute != null) {
-                    SKAnnotatedTypeParser.Trait trait = traitToAttribute.getKey();
-                    byte[] data = this.cachedAttributeHandleValueMap.get(attributeHandle);
-                    trait.decode(data);
-                }
-            });
+               if (traitToAttribute != null) {
+                   SKAnnotatedTypeParser.Trait trait = traitToAttribute.getKey();
+                   Object[] values = trait.decode(byteValue);
+
+                   propertyChangeSupport.firePropertyChange(trait.getName(), values[0], values[1]);
+               }
+           });
         }
     }
 
@@ -211,6 +215,7 @@ public final class HLAObjectInstance {
     void setInstance(Object instance) {
         if (this.instance == null) {
             this.instance = instance;
+            this.propertyChangeSupport = new PropertyChangeSupport(instance);
             deserialize();
         }
     }
@@ -224,6 +229,22 @@ public final class HLAObjectInstance {
         this.cachedAttributeHandleValueMap.clear();
         this.cachedAttributeHandleValueMap.putAll(attributeHandleValueMap);
         deserialize();
+    }
+
+    void addPropertyChangeListener(String propertyName, PropertyChangeListener listener) {
+        if (propertyName != null) {
+            this.propertyChangeSupport.addPropertyChangeListener(propertyName, listener);
+        } else {
+            this.propertyChangeSupport.addPropertyChangeListener(listener);
+        }
+    }
+
+    void removePropertyChangeListener(String propertyName, PropertyChangeListener listener) {
+        if (propertyName != null) {
+            this.propertyChangeSupport.removePropertyChangeListener(propertyName, listener);
+        } else {
+            this.propertyChangeSupport.removePropertyChangeListener(listener);
+        }
     }
 
     public static final class Builder {

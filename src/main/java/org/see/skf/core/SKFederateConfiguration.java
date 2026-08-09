@@ -82,7 +82,7 @@ final class SKFederateConfiguration {
                 throw new InvalidFederateConfigurationException("Invalid value for <lookahead> property.", e);
             } else {
                 this.maxThreads = 32;
-                logger.warn("Invalid value for <maxThreads> property. Assuming framework-default of 32 maximum threads for use by federate.");
+                logger.warn("Missing or invalid value for <maxThreads> parameter. Assuming framework-default of 32 maximum threads for use by federate.");
             }
         }
 

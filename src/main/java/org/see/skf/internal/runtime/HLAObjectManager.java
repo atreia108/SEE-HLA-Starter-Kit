@@ -7,12 +7,13 @@ import hla.rti1516_2025.RTIambassador;
 import hla.rti1516_2025.exceptions.*;
 import org.see.skf.core.HLAClassDeclarationException;
 import org.see.skf.core.HLAUtilityFactory;
-import org.see.skf.internal.EventListenerManager;
+import org.see.skf.core.ObjectInstanceListener;
 import org.see.skf.internal.callbacks.HLACallbackManager;
 import org.see.skf.internal.callbacks.NameReservationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.beans.PropertyChangeListener;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.function.Predicate;
@@ -25,22 +26,22 @@ public final class HLAObjectManager {
 
     private final ExecutorService executor;
     private final HLACallbackManager callbackManager;
-    private final EventListenerManager eventListenerManager;
     private final SKAnnotatedTypeParser parser;
 
     private final Set<HLAObjectInstance> objectInstances;
     private final Set<HLAObjectClass> objectClasses;
+    private final Set<ObjectInstanceListener> objectInstanceListeners;
 
     private HLAObjectManager(Builder builder) {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
 
         this.callbackManager = builder.callbackManager;
-        this.eventListenerManager = builder.eventListenerManager;
         this.parser = builder.parser;
         this.executor = builder.executor;
 
         this.objectInstances = new CopyOnWriteArraySet<>();
         this.objectClasses = new CopyOnWriteArraySet<>();
+        this.objectInstanceListeners = new CopyOnWriteArraySet<>();
     }
 
     public void publishObjectClass(String name, String... attributeNames) throws HLAClassDeclarationException {
@@ -76,37 +77,30 @@ public final class HLAObjectManager {
     }
 
     private HLAObjectClass getAndCreateObjectClassIfAbsent(String name) {
-        HLAObjectClass objectClass = this.objectClasses.stream()
-                .filter(c -> c.getName().equals(name))
-                .findFirst()
-                .orElseGet(() -> new HLAObjectClass(name));
+        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(name));
+
+        if (objectClass == null) {
+            objectClass = new HLAObjectClass(name);
+        }
 
         this.objectClasses.add(objectClass);
         return objectClass;
     }
 
-    private HLAObjectClass getObjectClass(String name) {
+    private HLAObjectClass getObjectClass(Predicate<HLAObjectClass> predicate) {
         return this.objectClasses.stream()
-                .filter(objectClass -> objectClass.getName().equals(name))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private HLAObjectClass getObjectClass(ObjectClassHandle handle) {
-        return this.objectClasses.stream()
-                .filter(objectClass -> objectClass.getHandle().equals(handle))
+                .filter(predicate)
                 .findFirst()
                 .orElse(null);
     }
 
     public void registerObjectInstance(Object object, String name) throws ObjectInstanceCreationException {
-        Predicate<HLAObjectInstance> predicate = objectInstance -> objectInstance.getInstance() != null && objectInstance.getName().equals(name);
-
-        if (getObjectInstance(name, predicate) == null) {
+        if (getObjectInstance(objInstance -> objInstance.getInstance() != null && objInstance.getName().equals(name)) == null) {
             SKAnnotatedTypeParser.ParsedStructure objectMetadata = this.parser.parseObjectInstance(object);
             String objectClassName = objectMetadata.getClassNameInFom();
             Set<SKAnnotatedTypeParser.Trait> attributes = objectMetadata.getTraits();
-            HLAObjectClass objectClass = getObjectClass(objectClassName);
+
+            HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(objectClassName));
 
             if (objectClass == null) {
                 throw new ObjectInstanceCreationException("Object class <" + objectClassName + "> is unknown. It may not have been previously published/subscribed by this federate.");
@@ -152,8 +146,7 @@ public final class HLAObjectManager {
     }
 
     public void updateAttributeValues(Object object, String... attributeNames) throws ObjectInstanceUpdateException {
-        Predicate<HLAObjectInstance> predicate = objectInstance -> objectInstance.getInstance() != null && objectInstance.getInstance().equals(object);
-        HLAObjectInstance objectInstance = getObjectInstance(object, predicate);
+        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getInstance() != null && objInstance.getInstance().equals(object));
 
         if (objectInstance == null) {
             throw new ObjectInstanceUpdateException("No HLA object instance is associated with the provided object <" + object + ">.");
@@ -162,21 +155,7 @@ public final class HLAObjectManager {
         objectInstance.updateAttributes(attributeNames);
     }
 
-    public HLAObjectInstance getObjectInstance(ObjectInstanceHandle handle) {
-        return this.objectInstances.stream()
-                .filter(objectInstance -> objectInstance.getHandle().equals(handle))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private HLAObjectInstance getObjectInstance(Object object, Predicate<HLAObjectInstance> predicate) {
-        return this.objectInstances.stream()
-                .filter(predicate)
-                .findFirst()
-                .orElse(null);
-    }
-
-    private HLAObjectInstance getObjectInstance(String name, Predicate<HLAObjectInstance> predicate) {
+    public HLAObjectInstance getObjectInstance(Predicate<HLAObjectInstance> predicate) {
         return this.objectInstances.stream()
                 .filter(predicate)
                 .findFirst()
@@ -200,7 +179,7 @@ public final class HLAObjectManager {
     }
 
     public void remoteObjectInstanceDiscovered(ObjectInstanceHandle instanceHandle, String name, ObjectClassHandle classHandle) {
-        HLAObjectClass objectClass = getObjectClass(classHandle);
+        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getHandle().equals(classHandle));
 
         if (objectClass != null) {
             HLAObjectInstance objectInstance = new HLAObjectInstance.Builder()
@@ -209,32 +188,29 @@ public final class HLAObjectManager {
                     .withObjectClass(objectClass)
                     .build();
 
-            Runnable r = () -> {
-                AttributeHandleValueMap attributeHandleValueMap;
-                try {
-                    Future<AttributeHandleValueMap> task = this.callbackManager.invokeReflectAttributeValueCallback(objectInstance, objectClass.getSubscribedAttributeHandles());
-                    attributeHandleValueMap = task.get();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("Took too long to receive the latest attribute information for the discovered object instance <" + objectInstance.getName() + ">", e);
-                } catch (ExecutionException e) {
-                    throw new RuntimeException("Unexpected exception was thrown while waiting for the latest attribute information of the object instance <" + objectInstance.getName() + ">.", e);
-                }
+            AttributeHandleValueMap attributeHandleValueMap;
+            try {
+                Future<AttributeHandleValueMap> task = this.callbackManager.invokeReflectAttributeValueCallback(objectInstance, objectClass.getSubscribedAttributeHandles());
+                attributeHandleValueMap = task.get();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Took too long to receive the latest attribute information for the discovered object instance <" + objectInstance.getName() + ">", e);
+            } catch (ExecutionException e) {
+                throw new RuntimeException("Unexpected exception was thrown while waiting for the latest attribute information of the object instance <" + objectInstance.getName() + ">.", e);
+            }
 
-                objectInstance.setCachedAttributeHandleValueMap(attributeHandleValueMap);
-                // With the latest attribute values acquired, this object instance is ready for internal use by the federate.
-                this.objectInstances.add(objectInstance);
-                logger.debug("Discovery process complete for the object instance <{}>. It is now available for use by the federate.", name);
-            };
-
-            this.executor.submit(r);
+            objectInstance.setCachedAttributeHandleValueMap(attributeHandleValueMap);
+            // With the latest attribute values acquired, this object instance is ready for internal use by the federate.
+            this.objectInstances.add(objectInstance);
+            logger.debug("Discovery process complete for the object instance <{}>. It is now available for use by the federate.", name);
         } else {
             logger.warn("Discovery for the remote object instance <{}> failed to complete as its corresponding object class could not be found. The instance will not available to the federate for use.", name);
         }
     }
 
     public void remoteObjectInstanceUpdate(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues) {
-        HLAObjectInstance objectInstance = getObjectInstance(instanceHandle);
+        Predicate<HLAObjectInstance> predicate = objectInstance -> objectInstance.getHandle().equals(instanceHandle);
+        HLAObjectInstance objectInstance = getObjectInstance(predicate);
 
         if (objectInstance != null) {
             objectInstance.setCachedAttributeHandleValueMap(attributeValues);
@@ -248,7 +224,7 @@ public final class HLAObjectManager {
 
         FutureTask<T> task = new FutureTask<>(() -> {
             while (true) {
-                HLAObjectInstance objectInstance = getObjectInstance(name, predicate);
+                HLAObjectInstance objectInstance = getObjectInstance(predicate);
                 if (objectInstance != null) {
                     SKAnnotatedTypeParser.ParsedStructure objectMetadata = this.parser.parseObjectInstance(object);
                     Set<SKAnnotatedTypeParser.Trait> traits = objectMetadata.getTraits();
@@ -265,20 +241,42 @@ public final class HLAObjectManager {
         return task;
     }
 
+    public void addObjectInstanceListener(ObjectInstanceListener listener) {
+        this.objectInstanceListeners.add(listener);
+    }
+
+    public void removeObjectInstanceListener(ObjectInstanceListener listener) {
+        this.objectInstanceListeners.remove(listener);
+    }
+
+    public void addPropertyChangeListener(Object object, String propertyName, PropertyChangeListener listener) {
+        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getInstance() != null && objInstance.getInstance().equals(object));
+
+        if (objectInstance != null) {
+            objectInstance.addPropertyChangeListener(propertyName, listener);
+        } else {
+            logger.warn("Cannot add property change listener to object <{}> which is not a registered HLA object instance.", object);
+        }
+    }
+
+    public void removePropertyChangeListener(Object object, String propertyName, PropertyChangeListener listener) {
+        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getInstance().equals(object));
+
+        if (objectInstance != null) {
+            objectInstance.removePropertyChangeListener(propertyName, listener);
+        } else {
+            logger.warn("Cannot remove property change listener from object <{}> which is not a registered HLA object instance.", object);
+        }
+    }
+
     public static final class Builder {
 
         private HLACallbackManager callbackManager;
-        private EventListenerManager eventListenerManager;
         private SKAnnotatedTypeParser parser;
         private ExecutorService executor;
 
         public Builder callbackManager(HLACallbackManager callbackManager) {
             this.callbackManager = callbackManager;
-            return this;
-        }
-
-        public Builder eventListenerManager(EventListenerManager eventListenerManager) {
-            this.eventListenerManager = eventListenerManager;
             return this;
         }
 
@@ -293,7 +291,7 @@ public final class HLAObjectManager {
         }
 
         public HLAObjectManager build() {
-            if (callbackManager == null || eventListenerManager == null || parser == null || executor == null) {
+            if (callbackManager == null || parser == null || executor == null) {
                 throw new IllegalStateException("One or more objects required to initialize HLAObjectManager are missing.");
             }
 

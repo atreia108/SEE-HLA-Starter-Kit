@@ -24,15 +24,12 @@
  If not, see http://http://www.gnu.org/licenses/
  *****************************************************************/
 
-package org.see.skf.runtime;
+package org.see.skf.encoding;
 
 import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import org.junit.jupiter.api.Test;
 import org.see.skf.internal.runtime.CoderManager;
-import org.see.skf.encoding.Coder;
-import org.see.skf.encoding.HLAbooleanCoder;
-import org.see.skf.encoding.HLAunicodeStringCoder;
 import org.see.skf.internal.runtime.CoderInstantiationException;
 
 import java.lang.reflect.Method;
@@ -75,57 +72,10 @@ class CoderManagerTest {
             Object decodedValue = decodeMethod.invoke(coder, encodedValue);
             assertNotNull(decodedValue);
         });
-
-
     }
 
     @Test
     void testFailCases() {
         assertThrows(CoderInstantiationException.class, () -> coderManager.get(InvalidCoder.class));
-    }
-}
-
-/* Dummy classes created purely for the sake of testing inheritance in coders. */
-
-class HLAunicodeStringCoderL1 extends HLAunicodeStringCoder {
-    public HLAunicodeStringCoderL1(EncoderFactory encoderFactory) {
-        super(encoderFactory);
-    }
-}
-
-class HLAunicodeStringCoderL2 extends HLAunicodeStringCoderL1 {
-    public HLAunicodeStringCoderL2(EncoderFactory encoderFactory) {
-        super(encoderFactory);
-    }
-}
-
-class HLAunicodeStringCoderL3 extends HLAunicodeStringCoderL2 {
-    public HLAunicodeStringCoderL3(EncoderFactory encoderFactory) {
-        super(encoderFactory);
-    }
-}
-
-class HLAbooleanCoderL1 extends HLAbooleanCoder {
-    public HLAbooleanCoderL1(EncoderFactory encoderFactory) {
-        super(encoderFactory);
-    }
-}
-
-class HLAbooleanCoderL2 extends HLAbooleanCoder {
-    public HLAbooleanCoderL2(EncoderFactory encoderFactory) {
-        super(encoderFactory);
-    }
-}
-
-class InvalidCoder implements Coder<Object> {
-
-    @Override
-    public byte[] encode(Object data) {
-        return new byte[0];
-    }
-
-    @Override
-    public Object decode(byte[] data) throws DecoderException {
-        return null;
     }
 }
