@@ -32,7 +32,6 @@ import hla.rti1516_2025.ResignAction;
 import hla.rti1516_2025.RtiConfiguration;
 import hla.rti1516_2025.exceptions.*;
 
-import org.see.skf.internal.EventListenerManager;
 import org.see.skf.internal.FederateMapping;
 import org.see.skf.internal.runtime.*;
 import org.see.skf.internal.callbacks.HLACallbackManager;
@@ -58,6 +57,7 @@ public abstract class SKFederate {
     private final SKFederateAmbassador federateAmbassador;
 
     private final HLAObjectManager objectManager;
+    private final HLAInteractionManager interactionManager;
 
     // private final SimulationTime simTime;
 
@@ -73,7 +73,7 @@ public abstract class SKFederate {
 
         ExecutorService executor = Executors.newFixedThreadPool(config.maxThreads());
         HLACallbackManager callbackManager = new HLACallbackManager(executor);
-        FederateMapping federateMapping = new FederateMapping(executor);
+        FederateMapping federateMapping = new FederateMapping();
 
         CoderManager coderManager = new CoderManager();
         SKAnnotatedTypeParser parser = new SKAnnotatedTypeParser(coderManager);
@@ -84,11 +84,13 @@ public abstract class SKFederate {
                 .executor(executor)
                 .build();
 
+        this.interactionManager = new HLAInteractionManager(parser, executor);
+
         this.federateAmbassador = new SKFederateAmbassador.Builder()
+                .executor(executor)
                 .callbackManager(callbackManager)
                 .objectManager(this.objectManager)
                 .federateMapping(federateMapping)
-                .executor(executor)
                 .build();
 
         connectToRTI();
@@ -201,13 +203,23 @@ public abstract class SKFederate {
     }
 
     public final <T> Future<T> queryObjectInstance(T object, String name) {
-        return this.objectManager.remoteObjectInstanceQuery(object, name);
+        return this.objectManager.launchRemoteObjectInstanceQuery(object, name);
     }
 
-    public final void setupTimeManagement() {
-        // TODO - Enable time regulation and constraint for messages, then compute and advance to HLTB.
-        // simTime.regulateTime();
-        // simTime.constrainTime();
+    public final void addObjectInstanceListener(ObjectInstanceListener listener) {
+        this.objectManager.addObjectInstanceListener(listener);
+    }
+
+    public final void removeObjectInstanceListener(ObjectInstanceListener listener) {
+        this.objectManager.removeObjectInstanceListener(listener);
+    }
+
+    public void addPropertyChangeListener(Object objectInstance, String propertyName, PropertyChangeListener listener) {
+        this.objectManager.addPropertyChangeListener(objectInstance, propertyName, listener);
+    }
+
+    public void removePropertyChangeListener(Object objectInstance, String propertyName, PropertyChangeListener listener) {
+        this.objectManager.removePropertyChangeListener(objectInstance, propertyName, listener);
     }
 
     // TODO - Object instance deletion.
@@ -216,31 +228,19 @@ public abstract class SKFederate {
     }
 
     // TODO
-    public void addObjectInstanceListener(ObjectInstanceListener objectInstanceListener) {
+    public void addInteractionListener(InteractionListener listener) {
 
     }
 
     // TODO
-    public void removeObjectInstanceListener(ObjectInstanceListener objectInstanceListener) {
+    public void removeInteractionListener(InteractionListener listener) {
 
     }
 
-    // TODO
-    public void addInteractionListener(InteractionListener interactionListener) {
-
-    }
-
-    // TODO
-    public void removeInteractionListener(InteractionListener interactionListener) {
-
-    }
-
-    public void addPropertyChangeListener(Object objectInstance, String propertyName, PropertyChangeListener propertyChangeListener) {
-        this.objectManager.addPropertyChangeListener(objectInstance, propertyName, propertyChangeListener);
-    }
-
-    public void removePropertyChangeListener(Object objectInstance, String propertyName, PropertyChangeListener propertyChangeListener) {
-        this.objectManager.addPropertyChangeListener(objectInstance, propertyName, propertyChangeListener);
+    public final void setupTimeManagement() {
+        // TODO - Enable time regulation and constraint for messages, then compute and advance to HLTB.
+        // simTime.regulateTime();
+        // simTime.constrainTime();
     }
 
     public abstract void configureAndStart();

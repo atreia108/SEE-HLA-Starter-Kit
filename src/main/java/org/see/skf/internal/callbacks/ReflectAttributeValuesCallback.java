@@ -5,9 +5,9 @@ import hla.rti1516_2025.ObjectInstanceHandle;
 
 import java.util.concurrent.FutureTask;
 
-public final class ObjectDiscoveryReflectAttributesCallback extends AbstractBiCallback<ObjectInstanceHandle, AttributeHandleValueMap> {
+public final class ReflectAttributeValuesCallback extends AbstractBiCallback<ObjectInstanceHandle, AttributeHandleValueMap> {
 
-    ObjectDiscoveryReflectAttributesCallback(ObjectInstanceHandle target, AttributeHandleValueMap outcome) {
+    ReflectAttributeValuesCallback(ObjectInstanceHandle target, AttributeHandleValueMap outcome) {
         super(target, outcome);
     }
 

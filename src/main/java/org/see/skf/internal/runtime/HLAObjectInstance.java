@@ -8,11 +8,11 @@ import org.slf4j.LoggerFactory;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 public final class HLAObjectInstance {
 
@@ -26,15 +26,11 @@ public final class HLAObjectInstance {
 
     private final HLAObjectClass objectClass;
 
-    private final AttributeHandleValueMap cachedAttributeHandleValueMap;
-
-    private final AttributeHandleSet cachedAttributeHandleSet;
-
     private PropertyChangeSupport propertyChangeSupport;
 
     private Object instance;
 
-    private final Map<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> traitToClassAttribute;
+    private Map<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> traitToClassAttribute;
 
     private HLAObjectInstance(Builder builder) {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
@@ -43,13 +39,7 @@ public final class HLAObjectInstance {
         this.handle = builder.handle;
         this.objectClass = builder.objectClass;
         this.instance = builder.instance != null ? builder.instance : null;
-
-        int count = this.objectClass.getAllAttributes().size();
-        this.cachedAttributeHandleValueMap = createAttributeHandleValueMap(count);
-        this.cachedAttributeHandleSet = createAttributeHandleSet();
-
-        this.traitToClassAttribute = new ConcurrentHashMap<>();
-        computeTraitToAttributeAssociation(builder.traits);
+        this.traitToClassAttribute = builder.traits != null ? computeTraitToAttributeAssociation(builder.traits) : null;
     }
 
     private AttributeHandleValueMap createAttributeHandleValueMap(int size) {
@@ -60,68 +50,47 @@ public final class HLAObjectInstance {
         }
     }
 
-    private AttributeHandleSet createAttributeHandleSet() {
-        try {
-            return this.rtiAmbassador.getAttributeHandleSetFactory().create();
-        } catch (FederateNotExecutionMember | NotConnected e) {
-            throw new RuntimeException("Could not create AttributeHandleSet in the object instance <" + this.name + ">.", e);
-        }
-    }
+    private Map<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> computeTraitToAttributeAssociation(Set<SKAnnotatedTypeParser.Trait> traits) {
+        Map<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> associations = new ConcurrentHashMap<>();
 
-    private void computeTraitToAttributeAssociation(Set<SKAnnotatedTypeParser.Trait> traits) {
         if (traits != null) {
             Function<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> associationFunction = trait -> this.objectClass.getAttribute(trait.getName());
-            traits.forEach(t -> this.traitToClassAttribute.computeIfAbsent(t, associationFunction));
+            traits.forEach(t -> associations.computeIfAbsent(t, associationFunction));
         }
+
+        return associations;
     }
 
-    private Map.Entry<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> getTraitToAttributeEntry(String attributeName) {
-        for (Map.Entry<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> entry : traitToClassAttribute.entrySet()) {
-            SKAnnotatedTypeParser.Trait t = entry.getKey();
-
-            if (t.getName().equals(attributeName)) {
-                return entry;
-            }
-        }
-
-        return null;
-    }
-
-    private Map.Entry<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> getTraitToAttributeEntry(AttributeHandle attributeHandle) {
-        for (Map.Entry<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> entry : traitToClassAttribute.entrySet()) {
-            HLAObjectClass.Attribute attribute = entry.getValue();
-
-            if (attributeHandle.equals(attribute.getHandle())) {
-                return entry;
-            }
-        }
-
-        return null;
+    private Map.Entry<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> getTraitToAttributeEntry(Predicate<Map.Entry<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute>> predicate) {
+        return this.traitToClassAttribute.entrySet().stream()
+                .filter(predicate)
+                .findFirst()
+                .orElse(null);
     }
 
     AttributeHandleValueMap serialize(String... attributeNames) throws ObjectInstanceUpdateException {
-        this.cachedAttributeHandleValueMap.clear();
+        AttributeHandleValueMap attributeHandleValueMap = createAttributeHandleValueMap(attributeNames.length);
 
         for (String attributeName : attributeNames) {
-            Map.Entry<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> traitToAttribute = getTraitToAttributeEntry(attributeName);
+            Map.Entry<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> traitToAttribute = getTraitToAttributeEntry(entry -> entry.getValue().getName().equals(attributeName));
 
             if (traitToAttribute != null) {
                 SKAnnotatedTypeParser.Trait trait = traitToAttribute.getKey();
                 HLAObjectClass.Attribute attribute = traitToAttribute.getValue();
 
-                this.cachedAttributeHandleValueMap.put(attribute.getHandle(), trait.encode());
+                attributeHandleValueMap.put(attribute.getHandle(), trait.encode());
             } else {
-                throw new ObjectInstanceUpdateException("The attribute <" + attributeName + "> and its associated serialization information is unknown for the object instance <" + this.name + ">.");
+                throw new ObjectInstanceUpdateException("The attribute <" + attributeName + "> and its associated serialization information is unknown in the object instance <" + this.name + ">.");
             }
         }
 
-        return this.cachedAttributeHandleValueMap;
+        return attributeHandleValueMap;
     }
 
-    private void deserialize() {
-        if (this.instance != null && !this.traitToClassAttribute.isEmpty()) {
-           this.cachedAttributeHandleValueMap.forEach((attributeHandle,byteValue) -> {
-               Map.Entry<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> traitToAttribute = getTraitToAttributeEntry(attributeHandle);
+    void deserialize(AttributeHandleValueMap attributeHandleValueMap) {
+        if (isTrackable() && !this.traitToClassAttribute.isEmpty() && !attributeHandleValueMap.isEmpty()) {
+           attributeHandleValueMap.forEach((attributeHandle,byteValue) -> {
+               Map.Entry<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> traitToAttribute = getTraitToAttributeEntry(entry -> entry.getValue().getHandle().equals(attributeHandle));
 
                if (traitToAttribute != null) {
                    SKAnnotatedTypeParser.Trait trait = traitToAttribute.getKey();
@@ -139,7 +108,7 @@ public final class HLAObjectInstance {
         try {
             rtiAmbassador.updateAttributeValues(this.handle, valueMapHandle, null);
             String loggableAttributeNames = getNamesInLoggableFormat(attributeNames);
-            logger.debug("Dispatched updates for instance <{}> attributes: {}", this.name, loggableAttributeNames);
+            logger.debug("Dispatched updates for object instance <{}> attributes: {}", this.name, loggableAttributeNames);
         } catch (AttributeNotOwned | AttributeNotDefined | ObjectInstanceNotKnown | SaveInProgress | RestoreInProgress |
                  FederateNotExecutionMember | NotConnected | RTIinternalError e) {
             throw new ObjectInstanceUpdateException("Updates for the object instance <" + this.name +"> were not sent.", e);
@@ -172,34 +141,6 @@ public final class HLAObjectInstance {
 
     }
 
-    /*
-    public AttributeHandleSet getAttributeHandles(Set<String> attributeNames) {
-        this.cachedAttributeHandleSet.clear();
-
-        attributeNames.forEach(attributeName -> {
-            AttributeHandle attributeHandle = getAttributeHandle(attributeName);
-
-            if (this.handle != null) {
-                this.cachedAttributeHandleSet.add(attributeHandle);
-            } else {
-                throw new NoSuchAttributeException("The attribute <" + attributeName +"> has not been internally generated for the object instance <" + this.name + ">.");
-            }
-        });
-
-        return this.cachedAttributeHandleSet;
-    }
-
-    private AttributeHandle getAttributeHandle(String attributeName) {
-        for (HLAObjectClass.Attribute attribute : this.traitToClassAttribute.values()) {
-            if (attribute.getName().equals(attributeName)) {
-                return attribute.getHandle();
-            }
-        }
-
-        return null;
-    }
-     */
-
     public String getName() {
         return this.name;
     }
@@ -208,27 +149,24 @@ public final class HLAObjectInstance {
         return this.handle;
     }
 
+    public HLAObjectClass getObjectClass() {
+        return this.objectClass;
+    }
+
     public Object getInstance() {
         return this.instance;
     }
 
-    void setInstance(Object instance) {
+    void makeTrackable(Object instance, Set<SKAnnotatedTypeParser.Trait> traits) {
         if (this.instance == null) {
             this.instance = instance;
             this.propertyChangeSupport = new PropertyChangeSupport(instance);
-            deserialize();
+            this.traitToClassAttribute = computeTraitToAttributeAssociation(traits);
         }
     }
 
-    void setTraits(Set<SKAnnotatedTypeParser.Trait> traits) {
-        computeTraitToAttributeAssociation(traits);
-        deserialize();
-    }
-
-    void setCachedAttributeHandleValueMap(AttributeHandleValueMap attributeHandleValueMap) {
-        this.cachedAttributeHandleValueMap.clear();
-        this.cachedAttributeHandleValueMap.putAll(attributeHandleValueMap);
-        deserialize();
+    boolean isTrackable() {
+        return this.instance != null;
     }
 
     void addPropertyChangeListener(String propertyName, PropertyChangeListener listener) {

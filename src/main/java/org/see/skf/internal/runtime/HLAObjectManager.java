@@ -28,8 +28,8 @@ public final class HLAObjectManager {
     private final HLACallbackManager callbackManager;
     private final SKAnnotatedTypeParser parser;
 
-    private final Set<HLAObjectInstance> objectInstances;
     private final Set<HLAObjectClass> objectClasses;
+    private final Set<HLAObjectInstance> objectInstances;
     private final Set<ObjectInstanceListener> objectInstanceListeners;
 
     private HLAObjectManager(Builder builder) {
@@ -155,14 +155,14 @@ public final class HLAObjectManager {
         objectInstance.updateAttributes(attributeNames);
     }
 
-    public HLAObjectInstance getObjectInstance(Predicate<HLAObjectInstance> predicate) {
+    private HLAObjectInstance getObjectInstance(Predicate<HLAObjectInstance> predicate) {
         return this.objectInstances.stream()
                 .filter(predicate)
                 .findFirst()
                 .orElse(null);
     }
 
-    boolean reserveName(String name) {
+    private boolean reserveName(String name) {
         if (name == null) {
             throw new IllegalArgumentException("Name for object instance cannot be null.");
         }
@@ -179,93 +179,129 @@ public final class HLAObjectManager {
     }
 
     public void remoteObjectInstanceDiscovered(ObjectInstanceHandle instanceHandle, String name, ObjectClassHandle classHandle) {
-        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getHandle().equals(classHandle));
+        Runnable r = () -> {
+            HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getHandle().equals(classHandle));
 
-        if (objectClass != null) {
-            HLAObjectInstance objectInstance = new HLAObjectInstance.Builder()
-                    .withName(name)
-                    .withHandle(instanceHandle)
-                    .withObjectClass(objectClass)
-                    .build();
+            if (objectClass != null) {
+                HLAObjectInstance objectInstance = new HLAObjectInstance.Builder()
+                        .withName(name)
+                        .withHandle(instanceHandle)
+                        .withObjectClass(objectClass)
+                        .build();
 
-            AttributeHandleValueMap attributeHandleValueMap;
-            try {
-                Future<AttributeHandleValueMap> task = this.callbackManager.invokeReflectAttributeValueCallback(objectInstance, objectClass.getSubscribedAttributeHandles());
-                attributeHandleValueMap = task.get();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException("Took too long to receive the latest attribute information for the discovered object instance <" + objectInstance.getName() + ">", e);
-            } catch (ExecutionException e) {
-                throw new RuntimeException("Unexpected exception was thrown while waiting for the latest attribute information of the object instance <" + objectInstance.getName() + ">.", e);
+                this.objectInstances.add(objectInstance);
+                logger.debug("Discovered the object instance <{}>.", name);
+
+                this.objectInstanceListeners.forEach(listener -> listener.added(name));
             }
+        };
 
-            objectInstance.setCachedAttributeHandleValueMap(attributeHandleValueMap);
-            // With the latest attribute values acquired, this object instance is ready for internal use by the federate.
-            this.objectInstances.add(objectInstance);
-            logger.debug("Discovery process complete for the object instance <{}>. It is now available for use by the federate.", name);
-        } else {
-            logger.warn("Discovery for the remote object instance <{}> failed to complete as its corresponding object class could not be found. The instance will not available to the federate for use.", name);
-        }
+        this.executor.submit(r);
     }
 
     public void remoteObjectInstanceUpdate(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues) {
-        Predicate<HLAObjectInstance> predicate = objectInstance -> objectInstance.getHandle().equals(instanceHandle);
-        HLAObjectInstance objectInstance = getObjectInstance(predicate);
+        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getHandle().equals(instanceHandle));
 
         if (objectInstance != null) {
-            objectInstance.setCachedAttributeHandleValueMap(attributeValues);
+            objectInstance.deserialize(attributeValues);
         } else {
             logger.warn("Updated values for the object instance with the handle <{}> could not be processed.", instanceHandle);
         }
     }
 
-    public <T> Future<T> remoteObjectInstanceQuery(T object, String name) {
-        Predicate<HLAObjectInstance> predicate = objectInstance -> objectInstance.getName().equals(name);
+    private AttributeHandleValueMap getLatestInstanceAttributeValues(HLAObjectInstance objectInstance) {
+        AttributeHandleValueMap attributeHandleValueMap;
+        HLAObjectClass objectClass = objectInstance.getObjectClass();
 
-        FutureTask<T> task = new FutureTask<>(() -> {
-            while (true) {
-                HLAObjectInstance objectInstance = getObjectInstance(predicate);
-                if (objectInstance != null) {
-                    SKAnnotatedTypeParser.ParsedStructure objectMetadata = this.parser.parseObjectInstance(object);
-                    Set<SKAnnotatedTypeParser.Trait> traits = objectMetadata.getTraits();
+        try {
+            Future<AttributeHandleValueMap> task = this.callbackManager.invokeReflectAttributeValueCallback(objectInstance, objectClass.getSubscribedAttributeHandles());
+            attributeHandleValueMap = task.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Took too long to receive the latest attribute information for the discovered object instance <" + objectInstance.getName() + ">", e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException("Unexpected exception was thrown while waiting for the latest attribute information of the object instance <" + objectInstance.getName() + ">.", e);
+        }
 
-                    objectInstance.setTraits(traits);
-                    objectInstance.setInstance(object);
+        return attributeHandleValueMap;
+    }
 
+    private void makeObjectInstanceTrackable(HLAObjectInstance objectInstance, Object object) {
+        if (objectInstance != null && object != null) {
+            SKAnnotatedTypeParser.ParsedStructure objectMetadata = this.parser.parseObjectInstance(object);
+            Set<SKAnnotatedTypeParser.Trait> traits = objectMetadata.getTraits();
+
+            objectInstance.makeTrackable(object, traits);
+        }
+    }
+
+    // TODO
+    public void remoteObjectInstanceDeleted() {
+
+    }
+
+    public <T> Future<T> launchRemoteObjectInstanceQuery(T object, String name) {
+        FutureTask<T> operation = new FutureTask<>(() -> {
+            Predicate<HLAObjectInstance> predicate = objInstance -> objInstance.getName().equals(name);
+            HLAObjectInstance objectInstance = getObjectInstance(predicate);
+
+            if (objectInstance != null && objectInstance.isTrackable() ) {
+                // Disallow swapping of the object assigned to HLAObjectInstance.instance.
+                if (!objectInstance.getInstance().equals(object)) {
+                    throw new IllegalArgumentException("Data for the object instance <" + name + "> is already being written to another object than the one supplied as argument.");
+                } else {
                     return object;
                 }
+            } else {
+                while (true) {
+                    if ((objectInstance = getObjectInstance(predicate)) != null) {
+                        break;
+                    }
+                }
             }
+
+            makeObjectInstanceTrackable(objectInstance, object);
+            AttributeHandleValueMap attributeHandleValueMap = getLatestInstanceAttributeValues(objectInstance);
+            objectInstance.deserialize(attributeHandleValueMap);
+
+            return object;
         });
 
-        this.executor.submit(task);
-        return task;
+        this.executor.submit(operation);
+        return operation;
     }
 
-    public void addObjectInstanceListener(ObjectInstanceListener listener) {
-        this.objectInstanceListeners.add(listener);
+    public void addObjectInstanceListener(ObjectInstanceListener objectInstanceListener) {
+        if (objectInstanceListener != null) {
+            this.objectInstanceListeners.add(objectInstanceListener);
+        }
     }
 
-    public void removeObjectInstanceListener(ObjectInstanceListener listener) {
-        this.objectInstanceListeners.remove(listener);
+    public void removeObjectInstanceListener(ObjectInstanceListener objectInstanceListener) {
+        if (objectInstanceListener != null) {
+            this.objectInstanceListeners.remove(objectInstanceListener);
+        }
     }
 
     public void addPropertyChangeListener(Object object, String propertyName, PropertyChangeListener listener) {
-        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getInstance() != null && objInstance.getInstance().equals(object));
+        if (object == null) {
+            return;
+        }
 
+        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getInstance() != null && objInstance.getInstance().equals(object));
         if (objectInstance != null) {
             objectInstance.addPropertyChangeListener(propertyName, listener);
-        } else {
-            logger.warn("Cannot add property change listener to object <{}> which is not a registered HLA object instance.", object);
         }
     }
 
     public void removePropertyChangeListener(Object object, String propertyName, PropertyChangeListener listener) {
-        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getInstance().equals(object));
+        if (object == null) {
+            return;
+        }
 
+        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getInstance().equals(object));
         if (objectInstance != null) {
             objectInstance.removePropertyChangeListener(propertyName, listener);
-        } else {
-            logger.warn("Cannot remove property change listener from object <{}> which is not a registered HLA object instance.", object);
         }
     }
 

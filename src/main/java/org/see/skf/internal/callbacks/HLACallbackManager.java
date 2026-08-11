@@ -7,6 +7,7 @@ import org.see.skf.internal.runtime.HLAObjectInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.security.auth.callback.Callback;
 import java.util.Set;
 import java.util.concurrent.*;
 
@@ -19,14 +20,14 @@ public final class HLACallbackManager {
     private final ExecutorService executor;
 
     private final Set<NameReservationCallback> nameReservationCallbacks;
-    private final Set<ObjectDiscoveryReflectAttributesCallback> objectDiscoveryReflectAttributesCallbacks;
+    private final Set<ReflectAttributeValuesCallback> reflectAttributeValuesCallbacks;
 
     public HLACallbackManager(ExecutorService executor) {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
         this.executor = executor;
 
         this.nameReservationCallbacks = new CopyOnWriteArraySet<>();
-        this.objectDiscoveryReflectAttributesCallbacks = new CopyOnWriteArraySet<>();
+        this.reflectAttributeValuesCallbacks = new CopyOnWriteArraySet<>();
     }
 
     public Future<Boolean> invokeNameReservationCallback(String objectInstanceName) {
@@ -55,9 +56,10 @@ public final class HLACallbackManager {
 
     public Future<AttributeHandleValueMap> invokeReflectAttributeValueCallback(HLAObjectInstance objectInstance, AttributeHandleSet subscribedAttributes) {
         ObjectInstanceHandle instanceHandle = objectInstance.getHandle();
-        ObjectDiscoveryReflectAttributesCallback callback = new ObjectDiscoveryReflectAttributesCallback(instanceHandle, null);
+
+        ReflectAttributeValuesCallback callback = new ReflectAttributeValuesCallback(instanceHandle, null);
         FutureTask<AttributeHandleValueMap> task = callback.getTask();
-        this.objectDiscoveryReflectAttributesCallbacks.add(callback);
+        this.reflectAttributeValuesCallbacks.add(callback);
         this.executor.submit(task);
 
         try {
@@ -71,13 +73,16 @@ public final class HLACallbackManager {
         return task;
     }
 
-    public void completeReflectAttributeValueCallback(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues) {
-        for (ObjectDiscoveryReflectAttributesCallback callback : this.objectDiscoveryReflectAttributesCallbacks) {
+    public boolean completeReflectAttributeValueCallback(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues) {
+        boolean callbackFound = false;
+        for (ReflectAttributeValuesCallback callback : this.reflectAttributeValuesCallbacks) {
             ObjectInstanceHandle targetInstanceHandle = callback.getTarget();
             if (targetInstanceHandle.equals(instanceHandle)) {
                 callback.complete(attributeValues);
-                objectDiscoveryReflectAttributesCallbacks.remove(callback);
+                this.reflectAttributeValuesCallbacks.remove(callback);
+                callbackFound = true;
             }
         }
+        return callbackFound;
     }
 }

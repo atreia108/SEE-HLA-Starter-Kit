@@ -13,12 +13,10 @@ import java.util.concurrent.ExecutorService;
 public final class FederateMapping {
     private final RTIambassador rtiAmbassador;
 
-    private final ExecutorService executor;
     private final Map<FederateHandle, String> handleToName;
     private final Map<String, FederateHandle> nameToHandle;
 
-    public FederateMapping(ExecutorService executor) {
-        this.executor = executor;
+    public FederateMapping() {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
         this.handleToName = new HashMap<>();
         this.nameToHandle = new HashMap<>();
@@ -31,20 +29,11 @@ public final class FederateMapping {
 
     private String getFederateNameFromRti(FederateHandle handle) {
         return this.handleToName.computeIfAbsent(handle, h -> {
-            Callable<String> c = () -> {
-                try {
-                    return this.rtiAmbassador.getFederateName(handle);
-                } catch (InvalidFederateHandle | FederateHandleNotKnown | FederateNotExecutionMember | NotConnected |
-                         RTIinternalError e) {
-                    throw new RuntimeException("Name of the federate using the handle <" + handle + "> could not be retrieved from the RTI.", e);
-                }
-            };
-
-            this.executor.submit(c);
             try {
-                return c.call();
-            } catch (Exception e) {
-                throw new RuntimeException("Unable to get the name for the federate with handle <" + handle +">.", e);
+                return this.rtiAmbassador.getFederateName(handle);
+            } catch (InvalidFederateHandle | FederateHandleNotKnown | FederateNotExecutionMember | NotConnected |
+                     RTIinternalError e) {
+                throw new RuntimeException("Name of the federate using the handle <" + handle + "> could not be retrieved from the RTI.", e);
             }
         });
     }

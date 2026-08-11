@@ -1,6 +1,6 @@
 package org.see.skf.core;
 
 public interface ObjectInstanceListener {
-    void added(Object instance);
-    void removed(Object instance);
+    void added(String name);
+    void removed(String name);
 }

@@ -39,11 +39,10 @@ import java.util.function.Predicate;
 
 final class SKFederateAmbassador extends NullFederateAmbassador {
 
-    private final ExecutorService executor;
-
     private final FederateMapping federateMapping;
     private final HLACallbackManager callbackManager;
     private final HLAObjectManager objectManager;
+    private final ExecutorService executor;
 
     private SKFederateAmbassador(Builder builder) {
         this.executor = builder.executor;
@@ -54,35 +53,29 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
     @Override
     public void discoverObjectInstance(ObjectInstanceHandle objectInstance, ObjectClassHandle objectClass, String objectInstanceName, FederateHandle producingFederate) throws FederateInternalError {
-        Runnable r = () -> {
+        this.executor.submit(() -> {
             this.objectManager.remoteObjectInstanceDiscovered(objectInstance, objectInstanceName, objectClass);
             this.federateMapping.add(producingFederate);
-        };
-
-        this.executor.submit(r);
+        });
     }
 
     @Override
     public void reflectAttributeValues(ObjectInstanceHandle objectInstance, AttributeHandleValueMap attributeValues, byte[] userSuppliedTag, TransportationTypeHandle transportationType, FederateHandle producingFederate, RegionHandleSet optionalSentRegions) throws FederateInternalError {
-        reflectAttributeValueCallback(objectInstance, attributeValues);
+        this.executor.submit(() -> reflectAttributeValueCallback(objectInstance, attributeValues));
     }
 
     @Override
     public void reflectAttributeValues(ObjectInstanceHandle objectInstance, AttributeHandleValueMap attributeValues, byte[] userSuppliedTag, TransportationTypeHandle transportationType, FederateHandle producingFederate, RegionHandleSet optionalSentRegions, LogicalTime<?, ?> time, OrderType sentOrderType, OrderType receivedOrderType, MessageRetractionHandle optionalRetraction) throws FederateInternalError {
-        reflectAttributeValueCallback(objectInstance, attributeValues);
+        this.executor.submit(() -> reflectAttributeValueCallback(objectInstance, attributeValues));
     }
 
     private void reflectAttributeValueCallback(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues) {
-        Runnable r = () -> {
-            Predicate<HLAObjectInstance> predicate = objectInstance -> objectInstance.getHandle().equals(instanceHandle);
-            if (this.objectManager.getObjectInstance(predicate) == null) {
-                this.callbackManager.completeReflectAttributeValueCallback(instanceHandle, attributeValues);
-            } else {
+        // A callback may have elicited this update, or it's just a casual instance attribute update callback from the RTI. Either way, the write operation should not be repeated twice for the object instance.
+        this.executor.submit(() -> {
+            if (!this.callbackManager.completeReflectAttributeValueCallback(instanceHandle, attributeValues)) {
                 this.objectManager.remoteObjectInstanceUpdate(instanceHandle, attributeValues);
             }
-        };
-
-        this.executor.submit(r);
+        });
     }
 
     // TODO
@@ -98,7 +91,7 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
     @Override
     public void objectInstanceNameReservationFailed(String objectInstanceName) throws FederateInternalError {
-        this.executor.submit(() ->this.callbackManager.completeNameReservationCallback(objectInstanceName, false));
+        this.executor.submit(() -> this.callbackManager.completeNameReservationCallback(objectInstanceName, false));
     }
 
     @Override
@@ -148,6 +141,5 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
             return new SKFederateAmbassador(this);
         }
-
     }
 }
