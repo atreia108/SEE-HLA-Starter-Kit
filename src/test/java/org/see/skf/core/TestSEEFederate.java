@@ -9,7 +9,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 public class TestSEEFederate extends SEEFederate {
-    private static final File confFile = new File("src/test/resources/test.conf");
+    private static final File confFile = new File("src/test/resources/valid.conf");
 
     private PhysicalEntity spaceport;
     private ExecutionConfiguration executionConfiguration;
@@ -88,7 +88,6 @@ public class TestSEEFederate extends SEEFederate {
             }).start();
         }
 
-        /*
         try {
             Vector3 accel = this.spaceport.getAcceleration();
             this.spaceport.setAcceleration(new Vector3(accel.getX() + 1.0, accel.getY() + 1.0, accel.getZ() + 1.0));
@@ -96,7 +95,6 @@ public class TestSEEFederate extends SEEFederate {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-         */
     }
 
     public static void main(String[] args) {

@@ -42,14 +42,6 @@ public final class HLAObjectInstance {
         this.traitToClassAttribute = builder.traits != null ? computeTraitToAttributeAssociation(builder.traits) : null;
     }
 
-    private AttributeHandleValueMap createAttributeHandleValueMap(int size) {
-        try {
-            return this.rtiAmbassador.getAttributeHandleValueMapFactory().create(size);
-        } catch (FederateNotExecutionMember | NotConnected e) {
-            throw new RuntimeException("Could not create AttributeHandleValueMap for packing attribute values in the object instance <" + this.name + ">.", e);
-        }
-    }
-
     private Map<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> computeTraitToAttributeAssociation(Set<SKAnnotatedTypeParser.Trait> traits) {
         Map<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> associations = new ConcurrentHashMap<>();
 
@@ -68,9 +60,7 @@ public final class HLAObjectInstance {
                 .orElse(null);
     }
 
-    AttributeHandleValueMap serialize(String... attributeNames) throws ObjectInstanceUpdateException {
-        AttributeHandleValueMap attributeHandleValueMap = createAttributeHandleValueMap(attributeNames.length);
-
+    AttributeHandleValueMap serialize(AttributeHandleValueMap map, String... attributeNames) {
         for (String attributeName : attributeNames) {
             Map.Entry<SKAnnotatedTypeParser.Trait, HLAObjectClass.Attribute> traitToAttribute = getTraitToAttributeEntry(entry -> entry.getValue().getName().equals(attributeName));
 
@@ -78,13 +68,13 @@ public final class HLAObjectInstance {
                 SKAnnotatedTypeParser.Trait trait = traitToAttribute.getKey();
                 HLAObjectClass.Attribute attribute = traitToAttribute.getValue();
 
-                attributeHandleValueMap.put(attribute.getHandle(), trait.encode());
+                map.put(attribute.getHandle(), trait.encode());
             } else {
-                throw new ObjectInstanceUpdateException("The attribute <" + attributeName + "> and its associated serialization information is unknown in the object instance <" + this.name + ">.");
+                throw new ObjectInstanceUpdateException("The attribute <" + attributeName + "> and its associated serialization information is unknown for the object instance <" + this.name + ">.");
             }
         }
 
-        return attributeHandleValueMap;
+        return map;
     }
 
     void deserialize(AttributeHandleValueMap attributeHandleValueMap) {
@@ -102,16 +92,17 @@ public final class HLAObjectInstance {
         }
     }
 
-    public void updateAttributes(String... attributeNames) throws ObjectInstanceUpdateException {
-        AttributeHandleValueMap valueMapHandle = serialize(attributeNames);
+    public void updateAttributes(AttributeHandleValueMap map, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, AttributeNotOwned {
+        AttributeHandleValueMap valueMapHandle = serialize(map, attributeNames);
 
         try {
             rtiAmbassador.updateAttributeValues(this.handle, valueMapHandle, null);
             String loggableAttributeNames = getNamesInLoggableFormat(attributeNames);
             logger.debug("Dispatched updates for object instance <{}> attributes: {}", this.name, loggableAttributeNames);
-        } catch (AttributeNotOwned | AttributeNotDefined | ObjectInstanceNotKnown | SaveInProgress | RestoreInProgress |
-                 FederateNotExecutionMember | NotConnected | RTIinternalError e) {
-            throw new ObjectInstanceUpdateException("Updates for the object instance <" + this.name +"> were not sent.", e);
+        } catch (AttributeNotDefined e) {
+            throw new ObjectInstanceUpdateException(e);
+        } catch (ObjectInstanceNotKnown ignore) {
+            logger.error("Updates not sent for the object instance <{}>. It may have been previously deleted.", this.name);
         }
     }
 

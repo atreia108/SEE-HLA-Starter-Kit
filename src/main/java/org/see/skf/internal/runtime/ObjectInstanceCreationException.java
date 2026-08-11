@@ -1,6 +1,6 @@
 package org.see.skf.internal.runtime;
 
-public final class ObjectInstanceCreationException extends Exception {
+public final class ObjectInstanceCreationException extends RuntimeException {
 
     public ObjectInstanceCreationException(String message) {
         super(message);

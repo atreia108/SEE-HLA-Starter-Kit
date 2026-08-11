@@ -115,7 +115,7 @@ public abstract class SKFederate {
         }
     }
 
-    public void joinFederationExecution() throws FederateStartupException {
+    public void joinFederationExecution() throws RestoreInProgress, Unauthorized, NotConnected, RTIinternalError, SaveInProgress {
         String originalFederateName = this.federateName;
         String suffix = "";
         boolean joined = false;
@@ -140,9 +140,11 @@ public abstract class SKFederate {
                 throw new FederateStartupException("The federation execution <" + this.federationName + "> does not exist.", e);
             } catch (InvalidFOM | ErrorReadingFOM | CouldNotOpenFOM | InconsistentFOM e) {
                 throw new FederateStartupException("The federation execution <" + this.federationName + "> could not be joined due to problems with parsing the supplied FOM modules.", e);
-            } catch (CouldNotCreateLogicalTimeFactory | SaveInProgress | RestoreInProgress | Unauthorized |
-                     NotConnected | CallNotAllowedFromWithinCallback | RTIinternalError e) {
+            } catch (CouldNotCreateLogicalTimeFactory e) {
                 throw new FederateStartupException(e);
+            } catch (CallNotAllowedFromWithinCallback ignore) {
+                // Highly unlikely to occur since the framework shields RTI callbacks from users. They would never have the privilege
+                // to throw this exception in the first place.
             }
         }
     }
@@ -190,20 +192,25 @@ public abstract class SKFederate {
         // TODO
     }
 
-    public final void createObjectInstance(Object objectInstance) throws ObjectInstanceCreationException {
+    public final void createObjectInstance(Object objectInstance) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, ObjectInstanceNameInUse, IllegalName, NotConnected, RTIinternalError, SaveInProgress {
         this.objectManager.registerObjectInstance(objectInstance, null);
     }
 
-    public final void createObjectInstance(Object objectInstance, String name) throws ObjectInstanceCreationException {
+    public final void createObjectInstance(Object objectInstance, String name) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, ObjectInstanceNameInUse, IllegalName, NotConnected, RTIinternalError, SaveInProgress {
         this.objectManager.registerObjectInstance(objectInstance, name);
     }
 
-    public final void updateObjectInstance(Object objectInstance, String... attributes) throws ObjectInstanceUpdateException {
+    public final void updateObjectInstance(Object objectInstance, String... attributes) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
+        if (attributes.length < 1) {
+            throw new IllegalArgumentException("At least one attribute is required to update an object instance.");
+        }
+
         this.objectManager.updateAttributeValues(objectInstance, attributes);
     }
 
+    // TODO
     public final void destroyObjectInstance(Object objectInstance) {
-        // TODO
+
     }
 
     public final <T> Future<T> queryObjectInstance(T object, String name) {

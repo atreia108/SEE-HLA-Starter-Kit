@@ -33,7 +33,7 @@ package org.see.skf.core;
  * @author Hridyanshu Aatreya
  * @since 2.1
  */
-public final class FederateStartupException extends Exception {
+public final class FederateStartupException extends RuntimeException {
 
     FederateStartupException(String message, Throwable cause) {
         super(message, cause);

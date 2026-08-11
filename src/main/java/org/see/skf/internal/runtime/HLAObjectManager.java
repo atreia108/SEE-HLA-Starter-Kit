@@ -109,7 +109,7 @@ public final class HLAObjectManager {
                 .orElse(null);
     }
 
-    public void registerObjectInstance(Object object, String name) throws ObjectInstanceCreationException {
+    public void registerObjectInstance(Object object, String name) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, ObjectInstanceNameInUse, IllegalName {
         if (getObjectInstance(objInstance -> objInstance.getInstance() != null && objInstance.getName().equals(name)) == null) {
             SKAnnotatedTypeParser.ParsedStructure objectMetadata = this.parser.parseObjectInstance(object);
             String objectClassName = objectMetadata.getClassNameInFom();
@@ -137,10 +137,8 @@ public final class HLAObjectManager {
                     instanceHandle = rtiAmbassador.registerObjectInstance(objectClassHandle);
                     objectInstanceName = rtiAmbassador.getObjectInstanceName(instanceHandle);
                 }
-            } catch (FederateNotExecutionMember | RestoreInProgress | NotConnected | RTIinternalError | SaveInProgress |
-                     ObjectClassNotPublished | ObjectClassNotDefined | ObjectInstanceNameInUse |
-                     ObjectInstanceNameNotReserved e) {
-                throw new ObjectInstanceCreationException("Could not register <" + object + "> as object instance with RTI.", e);
+            } catch (ObjectInstanceNameNotReserved e) {
+                throw new ObjectInstanceCreationException("The object instance <" + name + "> was not created because its name could not be reserved.", e);
             } catch (ObjectInstanceNotKnown e) {
                 throw new ObjectInstanceCreationException("Name of newly-created object instance with the handle <" + instanceHandle + "> could not be retrieved from RTI.", e);
             }
@@ -160,14 +158,15 @@ public final class HLAObjectManager {
         }
     }
 
-    public void updateAttributeValues(Object object, String... attributeNames) throws ObjectInstanceUpdateException {
+    public void updateAttributeValues(Object object, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, AttributeNotOwned {
         HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getInstance() != null && objInstance.getInstance().equals(object));
 
         if (objectInstance == null) {
             throw new ObjectInstanceUpdateException("No HLA object instance is associated with the provided object <" + object + ">.");
         }
 
-        objectInstance.updateAttributes(attributeNames);
+        AttributeHandleValueMap attributeHandleValueMap = rtiAmbassador.getAttributeHandleValueMapFactory().create(attributeNames.length);
+        objectInstance.updateAttributes(attributeHandleValueMap, attributeNames);
     }
 
     private HLAObjectInstance getObjectInstance(Predicate<HLAObjectInstance> predicate) {
@@ -177,7 +176,7 @@ public final class HLAObjectManager {
                 .orElse(null);
     }
 
-    private boolean reserveName(String name) {
+    private boolean reserveName(String name) throws FederateNotExecutionMember, RestoreInProgress, IllegalName, NotConnected, RTIinternalError, SaveInProgress {
         if (name == null) {
             throw new IllegalArgumentException("Name for object instance cannot be null.");
         }

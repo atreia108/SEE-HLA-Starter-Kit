@@ -29,17 +29,13 @@ public final class HLACallbackManager {
         this.reflectAttributeValuesCallbacks = new CopyOnWriteArraySet<>();
     }
 
-    public Future<Boolean> invokeNameReservationCallback(String objectInstanceName) {
+    public Future<Boolean> invokeNameReservationCallback(String objectInstanceName) throws FederateNotExecutionMember, RestoreInProgress, IllegalName, NotConnected, RTIinternalError, SaveInProgress {
         NameReservationCallback callback = new NameReservationCallback(objectInstanceName, null);
         FutureTask<Boolean> task = callback.getTask();
         this.nameReservationCallbacks.add(callback);
         this.executor.submit(task);
 
-        try {
-            rtiAmbassador.reserveObjectInstanceName(objectInstanceName);
-        } catch (IllegalName | SaveInProgress | RestoreInProgress | FederateNotExecutionMember | NotConnected | RTIinternalError e) {
-            throw new NameReservationException("The name <" + objectInstanceName + "> could not be reserved.", e);
-        }
+        rtiAmbassador.reserveObjectInstanceName(objectInstanceName);
 
         return task;
     }

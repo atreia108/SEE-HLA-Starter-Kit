@@ -12,29 +12,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 final class HLAInteractionClass {
 
-    private final String name;
-    private final InteractionClassHandle handle;
-    private final AtomicBoolean published;
-    private final AtomicBoolean subscribed;
+
+
 
     HLAInteractionClass(String name) {
-        RTIambassador rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
 
-        try {
-            this.handle = rtiAmbassador.getInteractionClassHandle(name);
-        } catch (NameNotFound e) {
-            throw new RtiHandleAcquisitionException("<" + name + "> is not a valid interaction class in the FOM for this federation execution. Re-check name element in the @InteractionClass annotation.");
-        } catch (FederateNotExecutionMember | NotConnected | RTIinternalError e) {
-            throw new RtiHandleAcquisitionException(e);
-        }
 
-        this.name = name;
-        this.published = new AtomicBoolean(false);
-        this.subscribed = new AtomicBoolean(false);
-    }
-
-    public String getName() {
-        return this.name;
     }
 
     static class Parameter {

@@ -19,7 +19,7 @@ public abstract class SEEFederate extends SKFederate {
         try {
             connectToRTI();
             joinFederationExecution();
-        } catch (FederateStartupException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
