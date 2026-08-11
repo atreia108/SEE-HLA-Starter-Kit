@@ -8,7 +8,6 @@ import org.see.skf.core.annotations.ObjectClass;
 import org.see.skf.core.annotations.Parameter;
 import org.see.skf.encoding.HLAbooleanCoder;
 import org.see.skf.encoding.HLAunicodeStringCoder;
-import org.see.skf.internal.runtime.AnnotationParseException;
 import org.see.skf.internal.runtime.SKAnnotatedTypeParser;
 import org.see.skf.runtime.models.DynamicalEntity;
 import org.see.skf.runtime.models.PhysicalEntity;
@@ -75,10 +74,10 @@ class SKAnnotatedTypeParserTest {
     @Test
     void testConstructorExceptions() {
         Object unannotatedObject = new UnannotatedObject();
-        assertThrows(AnnotationParseException.class, () -> parser.parseObjectInstance(unannotatedObject));
+        assertThrows(Exception.class, () -> parser.parseObjectInstance(unannotatedObject));
 
         Object multiannotatedObject = new MultiannotatedObject();
-        assertThrows(AnnotationParseException.class, () -> parser.parseObjectInstance(multiannotatedObject));
+        assertThrows(Exception.class, () -> parser.parseObjectInstance(multiannotatedObject));
 
         PhysicalEntity physicalEntity = new PhysicalEntity();
         DynamicalEntity dynamicalEntity = new DynamicalEntity();
@@ -148,10 +147,10 @@ class SKAnnotatedTypeParserTest {
         assertDoesNotThrow(() -> parser.parseObjectInstance(new PhysicalEntity()));
 
         FieldCoderMismatchObjectClass objClass = new FieldCoderMismatchObjectClass();
-        assertThrows(AnnotationParseException.class, () -> parser.parseObjectInstance(objClass));
+        assertThrows(Exception.class, () -> parser.parseObjectInstance(objClass));
 
         FieldCoderMismatchInteractionClass interactionClass = new FieldCoderMismatchInteractionClass();
-        assertThrows(AnnotationParseException.class, () -> parser.parseObjectInstance(interactionClass));
+        assertThrows(Exception.class, () -> parser.parseObjectInstance(interactionClass));
     }
 }
 

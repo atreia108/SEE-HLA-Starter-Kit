@@ -10,22 +10,22 @@ import org.see.skf.core.HLAUtilityFactory;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public final class HLAInteractionClass {
+final class HLAInteractionClass {
 
     private final String name;
     private final InteractionClassHandle handle;
     private final AtomicBoolean published;
     private final AtomicBoolean subscribed;
 
-    public HLAInteractionClass(String name) {
+    HLAInteractionClass(String name) {
         RTIambassador rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
 
         try {
             this.handle = rtiAmbassador.getInteractionClassHandle(name);
         } catch (NameNotFound e) {
-            throw new RtiHandleException("<" + name + "> is not a valid interaction class in the FOM for this federation execution. Re-check name element in the @InteractionClass annotation.");
+            throw new RtiHandleAcquisitionException("<" + name + "> is not a valid interaction class in the FOM for this federation execution. Re-check name element in the @InteractionClass annotation.");
         } catch (FederateNotExecutionMember | NotConnected | RTIinternalError e) {
-            throw new RtiHandleException(e);
+            throw new RtiHandleAcquisitionException(e);
         }
 
         this.name = name;
@@ -35,5 +35,9 @@ public final class HLAInteractionClass {
 
     public String getName() {
         return this.name;
+    }
+
+    static class Parameter {
+
     }
 }

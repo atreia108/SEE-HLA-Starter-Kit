@@ -93,9 +93,6 @@ public abstract class SKFederate {
                 .federateMapping(federateMapping)
                 .build();
 
-        connectToRTI();
-        joinFederationExecution();
-
         // Lazy initialization of simTime with just the lookAhead parameter. Federation-specific values will follow later
         // once the values of the ExCO object instance are retrieved.
         // long lookAhead = config.lookahead();
@@ -104,23 +101,22 @@ public abstract class SKFederate {
         configureAndStart();
     }
 
-    private void connectToRTI() {
-        String rtiAddress = rtiConfiguration.rtiAddress();
+    public void connectToRTI() throws FederateStartupException {
+        String rtiAddress = this.rtiConfiguration.rtiAddress();
 
         try {
-            rtiAmbassador.connect(federateAmbassador, CallbackModel.HLA_IMMEDIATE, rtiConfiguration);
+            rtiAmbassador.connect(this.federateAmbassador, CallbackModel.HLA_IMMEDIATE, this.rtiConfiguration);
             logger.info("Established connection to RTI hosted at <{}>.", rtiAddress);
         } catch (AlreadyConnected ignore) {
-            logger.warn("<{}> is already connected to the RTI hosted at <{}>.", federateName, rtiAddress);
-        }
-        catch (Unauthorized | ConnectionFailed | UnsupportedCallbackModel | CallNotAllowedFromWithinCallback |
+            logger.warn("<{}> is already connected to the RTI.", this.federateName);
+        } catch (Unauthorized | ConnectionFailed | UnsupportedCallbackModel | CallNotAllowedFromWithinCallback |
                RTIinternalError e) {
             throw new FederateStartupException("Failed to establish connection to the RTI hosted at <" + rtiAddress + ">.", e);
         }
     }
 
-    private void joinFederationExecution() {
-        String originalFederateName = federateName;
+    public void joinFederationExecution() throws FederateStartupException {
+        String originalFederateName = this.federateName;
         String suffix = "";
         boolean joined = false;
         int attempts = 1;
@@ -130,7 +126,7 @@ public abstract class SKFederate {
                 attemptJoin();
 
                 if (attempts > 1) {
-                    logger.warn("The name <{}> was already taken by another federate. Assuming the name <{}> instead.", originalFederateName, federateName);
+                    logger.warn("The name <{}> was already taken by another federate. Assuming the name <{}> instead.", originalFederateName, this.federateName);
                 }
 
                 logger.info("Joined the federation execution <{}>.", federationName);
@@ -139,23 +135,23 @@ public abstract class SKFederate {
                 // Attempt to join again with an incremented suffix at the end of the federate name.
                 federateName = originalFederateName + suffix + "_" + attempts++;
             } catch(FederateAlreadyExecutionMember ignore) {
-                logger.warn("<{}> is already a member of the federation execution <{}>.", federateName, federationName);
+                logger.warn("<{}> is already a member of the federation execution <{}>.", this.federateName, this.federationName);
             } catch (FederationExecutionDoesNotExist e) {
-                throw new FederateStartupException("The federation execution <" + federationName + "> does not exist.", e);
+                throw new FederateStartupException("The federation execution <" + this.federationName + "> does not exist.", e);
             } catch (InvalidFOM | ErrorReadingFOM | CouldNotOpenFOM | InconsistentFOM e) {
-                throw new FederateStartupException("Failed to join the federation execution <" + federationName + "> due to problems with parsing the supplied FOM modules.", e);
+                throw new FederateStartupException("The federation execution <" + this.federationName + "> could not be joined due to problems with parsing the supplied FOM modules.", e);
             } catch (CouldNotCreateLogicalTimeFactory | SaveInProgress | RestoreInProgress | Unauthorized |
                      NotConnected | CallNotAllowedFromWithinCallback | RTIinternalError e) {
-                throw new FederateStartupException("Failed to join the federation execution <" + federationName + ">.", e);
+                throw new FederateStartupException(e);
             }
         }
     }
 
     private void attemptJoin() throws CouldNotOpenFOM, NotConnected, InvalidFOM, RTIinternalError, ErrorReadingFOM, CouldNotCreateLogicalTimeFactory, FederateNameAlreadyInUse, RestoreInProgress, CallNotAllowedFromWithinCallback, InconsistentFOM, FederationExecutionDoesNotExist, Unauthorized, FederateAlreadyExecutionMember, SaveInProgress {
-        if (additionalFomModules.length > 0) {
-            rtiAmbassador.joinFederationExecution(federateName, federateType, federationName, additionalFomModules);
+        if (this.additionalFomModules.length > 0) {
+            rtiAmbassador.joinFederationExecution(this.federateName, this.federateType, this.federationName, this.additionalFomModules);
         } else {
-            rtiAmbassador.joinFederationExecution(federateName, federateType, federationName);
+            rtiAmbassador.joinFederationExecution(this.federateName, this.federateType, this.federationName);
         }
     }
 
@@ -170,7 +166,11 @@ public abstract class SKFederate {
         }
     }
 
-    public final void publishObjectClass(String className, String... attributeNames) throws HLAClassDeclarationException {
+    public final void publishObjectClass(String className, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
+        if (attributeNames.length < 1) {
+            throw new IllegalArgumentException("At least one attribute is required to publish the object class <" + className + ">.");
+        }
+
         this.objectManager.publishObjectClass(className, attributeNames);
     }
 
@@ -178,7 +178,11 @@ public abstract class SKFederate {
         // TODO
     }
 
-    public final void subscribeObjectClass(String className, String... attributeNames) throws HLAClassDeclarationException {
+    public final void subscribeObjectClass(String className, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
+        if (attributeNames.length < 1) {
+            throw new IllegalArgumentException("At least one attribute is required to subscribe the object class <" + className + ">.");
+        }
+
         this.objectManager.subscribeObjectClass(className, attributeNames);
     }
 

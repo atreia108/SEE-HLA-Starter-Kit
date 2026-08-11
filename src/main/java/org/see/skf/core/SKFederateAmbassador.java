@@ -30,12 +30,10 @@ import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.FederateInternalError;
 import hla.rti1516_2025.time.LogicalTime;
 import org.see.skf.internal.FederateMapping;
-import org.see.skf.internal.runtime.HLAObjectInstance;
 import org.see.skf.internal.runtime.HLAObjectManager;
 import org.see.skf.internal.callbacks.HLACallbackManager;
 
 import java.util.concurrent.ExecutorService;
-import java.util.function.Predicate;
 
 final class SKFederateAmbassador extends NullFederateAmbassador {
 

@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -26,49 +27,41 @@ public final class HLAObjectClass {
     private final Set<Attribute> attributes;
     private final AttributeHandleSet attributeHandleSet;
 
-    public HLAObjectClass(String name) {
+    public HLAObjectClass(String name, ObjectClassHandle handle, AttributeHandleSet emptyAttributeHandleSet) {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
 
-        try {
-            this.handle = rtiAmbassador.getObjectClassHandle(name);
-        } catch (NameNotFound e) {
-            throw new RtiHandleException("<" + name + "> is not a valid object class in the FOM for this federation execution.");
-        } catch (FederateNotExecutionMember | NotConnected | RTIinternalError e) {
-            throw new RtiHandleException(e);
-        }
-
         this.name = name;
+        this.handle = handle;
+        this.attributeHandleSet = emptyAttributeHandleSet;
+
         this.attributes = new CopyOnWriteArraySet<>();
-        this.attributeHandleSet = createAttributeHandleSet();
     }
 
-    private AttributeHandleSet createAttributeHandleSet() {
-        try {
-            return this.rtiAmbassador.getAttributeHandleSetFactory().create();
-        } catch (FederateNotExecutionMember | NotConnected e) {
-            throw new RuntimeException("Could not create AttributeHandleSet in the object instance <" + this.name + ">.", e);
-        }
-    }
+    public void publishAttributes(Map<String, AttributeHandle> attributeToHandle) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        Set<Attribute> publishedAttributes = new HashSet<>(attributeToHandle.size());
 
-    public void publishAttributes(String... attributeNames) throws HLAClassDeclarationException {
-        Set<Attribute> publishedAttributes = new HashSet<>(attributeNames.length);
+        for (Map.Entry<String, AttributeHandle> entry : attributeToHandle.entrySet()) {
+            String attributeName = entry.getKey();
+            AttributeHandle attributeHandle = entry.getValue();
+            Attribute attribute = getAttribute(name);
 
-        for (String attributeName : attributeNames) {
-            Attribute attribute = getAndCreateAttributeIfAbsent(attributeName);
+            if (attribute == null) {
+                attribute = new Attribute(attributeName, attributeHandle);
+                this.attributes.add(attribute);
+            }
+
             attribute.published.set(true);
-
             publishedAttributes.add(attribute);
         }
 
         this.attributeHandleSet.clear();
         publishedAttributes.forEach(attribute -> this.attributeHandleSet.add(attribute.handle));
 
-        String loggableAttributeNames = getNamesInLoggableFormat(attributeNames);
+        String loggableAttributeNames = getNamesInLoggableFormat(attributeToHandle.keySet());
         try {
             rtiAmbassador.publishObjectClassAttributes(this.handle, attributeHandleSet);
-        } catch (AttributeNotDefined | ObjectClassNotDefined | SaveInProgress | RestoreInProgress |
-                 FederateNotExecutionMember | NotConnected | RTIinternalError e) {
-            throw new HLAClassDeclarationException("Could not publish these <" + this.name + "> attributes: " + loggableAttributeNames, e);
+        } catch (AttributeNotDefined | ObjectClassNotDefined e) {
+            throw new HLAClassDeclarationException(e);
         }
 
         logger.info("Published <{}> attributes: {}", this.name, loggableAttributeNames);
@@ -87,24 +80,31 @@ public final class HLAObjectClass {
         }
     }
 
-    public void subscribeAttributes(String ...attributeNames) throws HLAClassDeclarationException {
-        Set<Attribute> subscribedAttributes = new HashSet<>(attributeNames.length);
+    public void subscribeAttributes(Map<String, AttributeHandle> attributeToHandle) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        Set<Attribute> subscribedAttributes = new HashSet<>(attributeToHandle.size());
 
-        for (String attributeName : attributeNames) {
-            Attribute attribute = getAndCreateAttributeIfAbsent(attributeName);
+        for (Map.Entry<String, AttributeHandle> entry : attributeToHandle.entrySet()) {
+            String attributeName = entry.getKey();
+            AttributeHandle attributeHandle = entry.getValue();
+            Attribute attribute = getAttribute(attributeName);
+
+            if (attribute == null) {
+                attribute = new Attribute(attributeName, attributeHandle);
+                this.attributes.add(attribute);
+            }
+
             attribute.subscribed.set(true);
-
             subscribedAttributes.add(attribute);
         }
 
         this.attributeHandleSet.clear();
         subscribedAttributes.forEach(attribute -> this.attributeHandleSet.add(attribute.handle));
 
-        String loggableAttributeNames = getNamesInLoggableFormat(attributeNames);
+        String loggableAttributeNames = getNamesInLoggableFormat(attributeToHandle.keySet());
         try {
             rtiAmbassador.subscribeObjectClassAttributes(this.handle, attributeHandleSet);
-        } catch (AttributeNotDefined | ObjectClassNotDefined | SaveInProgress | RestoreInProgress | FederateNotExecutionMember | NotConnected | RTIinternalError e) {
-            throw new HLAClassDeclarationException("Could not subscribe these <" + this.name + "> attributes: " + loggableAttributeNames, e);
+        } catch (AttributeNotDefined | ObjectClassNotDefined e) {
+            throw new HLAClassDeclarationException(e);
         }
 
         logger.info("Subscribed <{}> attributes: {}", this.name, loggableAttributeNames);
@@ -123,13 +123,15 @@ public final class HLAObjectClass {
         }
     }
 
-    private String getNamesInLoggableFormat(String... attributeNames) {
+    private String getNamesInLoggableFormat(Set<String> attributeNames) {
         StringBuilder sb = new StringBuilder("[ ");
 
-        for (int i = 0; i < attributeNames.length; i++) {
-            sb.append(attributeNames[i]);
+        String[] attributeNamesArray = attributeNames.toArray(String[]::new);
 
-            if (i != attributeNames.length - 1) {
+        for (int i = 0; i < attributeNamesArray.length; i++) {
+            sb.append(attributeNamesArray[i]);
+
+            if (i != attributeNamesArray.length - 1) {
                 sb.append(", ");
             } else {
                 sb.append(" ]");
@@ -137,15 +139,6 @@ public final class HLAObjectClass {
         }
 
         return sb.toString();
-    }
-
-    private Attribute getAndCreateAttributeIfAbsent(String attributeName) {
-        Attribute targetAttribute =  this.attributes.stream()
-                .filter(attribute -> attribute.name.equals(attributeName))
-                .findFirst().orElseGet(() -> new Attribute(attributeName));
-
-        this.attributes.add(targetAttribute);
-        return targetAttribute;
     }
 
     public String getName() {
@@ -163,17 +156,6 @@ public final class HLAObjectClass {
                 .orElse(null);
     }
 
-    Attribute getAttribute(AttributeHandle handle) {
-        return attributes.stream()
-                .filter(attribute -> attribute.handle == handle)
-                .findFirst()
-                .orElse(null);
-    }
-
-    Set<Attribute> getAllAttributes() {
-        return this.attributes;
-    }
-
     public AttributeHandleSet getSubscribedAttributeHandles() {
         this.attributeHandleSet.clear();
 
@@ -186,21 +168,7 @@ public final class HLAObjectClass {
         return this.attributeHandleSet;
     }
 
-    /*
-    public Set<String> getSubscribableAttributeNames() {
-        Set<String> subscribedAttributeNames = new HashSet<>(this.attributes.size());
-
-        this.attributes.forEach(attribute -> {
-            if (attribute.subscribed.get()) {
-                subscribedAttributeNames.add(attribute.name);
-            }
-        });
-
-        return subscribedAttributeNames;
-    }
-     */
-
-    final class Attribute {
+    static final class Attribute {
 
         private final String name;
 
@@ -210,18 +178,11 @@ public final class HLAObjectClass {
 
         private final AtomicBoolean subscribed;
 
-        private Attribute(String name) {
+        private Attribute(String name, AttributeHandle handle) {
             this.name = name;
+            this.handle = handle;
             this.published = new AtomicBoolean(false);
             this.subscribed = new AtomicBoolean(false);
-
-            try {
-                this.handle = rtiAmbassador.getAttributeHandle(HLAObjectClass.this.handle, name);
-            } catch (NameNotFound e) {
-                throw new RtiHandleException("<" + this.name + "> is not a recognized attribute for the object class <" + HLAObjectClass.this.name + ">.", e);
-            } catch (InvalidObjectClassHandle | FederateNotExecutionMember | NotConnected | RTIinternalError e) {
-                throw new RtiHandleException(e);
-            }
         }
 
         String getName() {

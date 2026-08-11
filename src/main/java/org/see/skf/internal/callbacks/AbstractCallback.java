@@ -3,6 +3,7 @@ package org.see.skf.internal.callbacks;
 import java.util.concurrent.FutureTask;
 
 abstract class AbstractCallback<T> {
+
     private T outcome;
     private final FutureTask<T> task;
 

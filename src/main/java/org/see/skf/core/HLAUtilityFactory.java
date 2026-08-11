@@ -29,7 +29,7 @@ public enum HLAUtilityFactory {
             String jreVersion = System.getProperty("java.version");
             logger.info("SEE HLA Starter Kit Version {}. RTI: {} {}. HLA Standard: {}. JRE: {}", FRAMEWORK_VERSION, rtiName, rtiVersion, hlaStandard, jreVersion);
         } catch (RTIinternalError e) {
-            throw new FederateStartupException("Failed to initialize one or more HLA utility objects for use by the federate.", e);
+            throw new RuntimeException("Failed to initialize one or more HLA utility objects for use by the federate.", e);
         }
     }
 

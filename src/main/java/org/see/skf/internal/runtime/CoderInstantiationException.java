@@ -1,12 +1,13 @@
 package org.see.skf.internal.runtime;
 
-public final class CoderInstantiationException extends RuntimeException {
+final class CoderInstantiationException extends RuntimeException {
 
-  public CoderInstantiationException(String message) {
+  CoderInstantiationException(String message) {
     super(message);
   }
 
-  public CoderInstantiationException(String message, Throwable cause) {
+  CoderInstantiationException(String message, Throwable cause) {
     super(message, cause);
   }
+
 }

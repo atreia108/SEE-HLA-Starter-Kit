@@ -5,7 +5,7 @@ import hla.rti1516_2025.ObjectInstanceHandle;
 
 import java.util.concurrent.FutureTask;
 
-public final class ReflectAttributeValuesCallback extends AbstractBiCallback<ObjectInstanceHandle, AttributeHandleValueMap> {
+final class ReflectAttributeValuesCallback extends AbstractBiCallback<ObjectInstanceHandle, AttributeHandleValueMap> {
 
     ReflectAttributeValuesCallback(ObjectInstanceHandle target, AttributeHandleValueMap outcome) {
         super(target, outcome);

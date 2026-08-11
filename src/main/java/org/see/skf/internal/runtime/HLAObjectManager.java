@@ -1,11 +1,7 @@
 package org.see.skf.internal.runtime;
 
-import hla.rti1516_2025.AttributeHandleValueMap;
-import hla.rti1516_2025.ObjectClassHandle;
-import hla.rti1516_2025.ObjectInstanceHandle;
-import hla.rti1516_2025.RTIambassador;
+import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.*;
-import org.see.skf.core.HLAClassDeclarationException;
 import org.see.skf.core.HLAUtilityFactory;
 import org.see.skf.core.ObjectInstanceListener;
 import org.see.skf.internal.callbacks.HLACallbackManager;
@@ -14,6 +10,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.beans.PropertyChangeListener;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.function.Predicate;
@@ -44,15 +42,43 @@ public final class HLAObjectManager {
         this.objectInstanceListeners = new CopyOnWriteArraySet<>();
     }
 
-    public void publishObjectClass(String name, String... attributeNames) throws HLAClassDeclarationException {
-        if (attributeNames.length < 1) {
-            throw new IllegalArgumentException("At least one attribute is required to publish the object class <" + name + ">.");
+    private HLAObjectClass createHLAObjectClass(String name) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
+        try {
+            ObjectClassHandle classHandle = rtiAmbassador.getObjectClassHandle(name);
+            AttributeHandleSet emptyAttributeHandleSet = rtiAmbassador.getAttributeHandleSetFactory().create();
+
+            return new HLAObjectClass(name, classHandle, emptyAttributeHandleSet);
+        } catch (NameNotFound e) {
+            throw new RtiHandleAcquisitionException("<" + name + "> is not a valid object class in the FOM for this federation execution.", e);
+        }
+    }
+
+    private Map<String, AttributeHandle> createAttributeToHandleMap(HLAObjectClass objectClass, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
+        Map<String, AttributeHandle> map = new HashMap<>();
+
+        for (String attributeName : attributeNames) {
+            try {
+                AttributeHandle attributeHandle = rtiAmbassador.getAttributeHandle(objectClass.getHandle(), attributeName);
+                map.put(attributeName, attributeHandle);
+            } catch (NameNotFound e) {
+                throw new RtiHandleAcquisitionException("<" + attributeName + "> is not a recognized attribute for the object class <" + objectClass.getName() + ">.");
+            } catch (InvalidObjectClassHandle e) {
+                throw new RtiHandleAcquisitionException(e);
+            }
         }
 
-        HLAObjectClass objectClass = getAndCreateObjectClassIfAbsent(name);
-        objectClass.publishAttributes(attributeNames);
+        return map;
+    }
 
-        this.objectClasses.add(objectClass);
+    public void publishObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
+        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(name));
+        if (objectClass == null) {
+            objectClass = createHLAObjectClass(name);
+            this.objectClasses.add(objectClass);
+        }
+
+        Map<String, AttributeHandle> attributeToHandle = createAttributeToHandleMap(objectClass, attributeNames);
+        objectClass.publishAttributes(attributeToHandle);
     }
 
     // TODO
@@ -60,31 +86,20 @@ public final class HLAObjectManager {
 
     }
 
-    public void subscribeObjectClass(String name, String... attributeNames) throws HLAClassDeclarationException {
-        if (attributeNames.length < 1) {
-            throw new IllegalArgumentException("At least one attribute is required to subscribe the object class <" + name + ">.");
+    public void subscribeObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
+        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(name));
+        if (objectClass == null) {
+            objectClass = createHLAObjectClass(name);
+            this.objectClasses.add(objectClass);
         }
 
-        HLAObjectClass objectClass = getAndCreateObjectClassIfAbsent(name);
-        objectClass.subscribeAttributes(attributeNames);
-
-        this.objectClasses.add(objectClass);
+        Map<String, AttributeHandle> attributeToHandle = createAttributeToHandleMap(objectClass, attributeNames);
+        objectClass.subscribeAttributes(attributeToHandle);
     }
 
     // TODO
     public void unsubscribeObjectClass(String name, String... attributes) {
 
-    }
-
-    private HLAObjectClass getAndCreateObjectClassIfAbsent(String name) {
-        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(name));
-
-        if (objectClass == null) {
-            objectClass = new HLAObjectClass(name);
-        }
-
-        this.objectClasses.add(objectClass);
-        return objectClass;
     }
 
     private HLAObjectClass getObjectClass(Predicate<HLAObjectClass> predicate) {
@@ -246,7 +261,7 @@ public final class HLAObjectManager {
             HLAObjectInstance objectInstance = getObjectInstance(predicate);
 
             if (objectInstance != null && objectInstance.isTrackable() ) {
-                // Disallow swapping of the object assigned to HLAObjectInstance.instance.
+                // Disallow swapping of the object assigned to HLAObjectInstance.instance field.
                 if (!objectInstance.getInstance().equals(object)) {
                     throw new IllegalArgumentException("Data for the object instance <" + name + "> is already being written to another object than the one supplied as argument.");
                 } else {
