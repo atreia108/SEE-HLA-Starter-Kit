@@ -109,53 +109,139 @@ public final class HLAObjectManager {
                 .orElse(null);
     }
 
-    public void registerObjectInstance(Object object, String name) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, ObjectInstanceNameInUse, IllegalName {
-        if (getObjectInstance(objInstance -> objInstance.getInstance() != null && objInstance.getName().equals(name)) == null) {
-            SKAnnotatedTypeParser.ParsedStructure objectMetadata = this.parser.parseObjectInstance(object);
-            String objectClassName = objectMetadata.getClassNameInFom();
-            Set<SKAnnotatedTypeParser.Trait> attributes = objectMetadata.getTraits();
-
-            HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(objectClassName));
-
-            if (objectClass == null) {
-                throw new ObjectInstanceCreationException("Object class <" + objectClassName + "> is unknown. It may not have been previously published/subscribed by this federate.");
-            }
-
-            ObjectClassHandle objectClassHandle = objectClass.getHandle();
-
-            ObjectInstanceHandle instanceHandle = null;
-            String objectInstanceName;
-            try {
-                if (name != null) {
-                    if (!reserveName(name)) {
-                        throw new ObjectInstanceCreationException("Unable to register object instance with the name <" + name + ">.");
-                    }
-
-                    objectInstanceName = name;
-                    instanceHandle = rtiAmbassador.registerObjectInstance(objectClassHandle, objectInstanceName);
-                } else {
-                    instanceHandle = rtiAmbassador.registerObjectInstance(objectClassHandle);
-                    objectInstanceName = rtiAmbassador.getObjectInstanceName(instanceHandle);
-                }
-            } catch (ObjectInstanceNameNotReserved e) {
-                throw new ObjectInstanceCreationException("The object instance <" + name + "> was not created because its name could not be reserved.", e);
-            } catch (ObjectInstanceNotKnown e) {
-                throw new ObjectInstanceCreationException("Name of newly-created object instance with the handle <" + instanceHandle + "> could not be retrieved from RTI.", e);
-            }
-
-            HLAObjectInstance objectInstance = new HLAObjectInstance.Builder()
-                    .withName(objectInstanceName)
-                    .withObjectClass(objectClass)
-                    .withHandle(instanceHandle)
-                    .withAttributes(attributes)
-                    .forObject(object)
-                    .build();
-
-            this.objectInstances.add(objectInstance);
-            logger.info("Object instance <{}> created.", objectInstanceName);
-        } else {
-            logger.warn("Attempt made to create an object instance with the name <{}> that already exists.", name);
+    public String registerObjectInstance(Object object) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        if (object == null) {
+            throw new IllegalArgumentException("Cannot create HLA object instance with a NULL object.");
         }
+
+        SKAnnotatedTypeParser.ParsedStructure objectMetadata = this.parser.parseObjectInstance(object);
+        String objectClassName = objectMetadata.getClassNameInFom();
+        Set<SKAnnotatedTypeParser.Trait> attributes = objectMetadata.getTraits();
+
+        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(objectClassName));
+        if (objectClass == null) {
+            throw new ObjectInstanceCreationException("Object class <" + objectClassName + "> is unknown. It may not have been previously published/subscribed by this federate.");
+        }
+
+        ObjectClassHandle objectClassHandle = objectClass.getHandle();
+        ObjectInstanceHandle instanceHandle = rtiAmbassador.registerObjectInstance(objectClassHandle);
+
+        String objectInstanceName;
+        try {
+            objectInstanceName = rtiAmbassador.getObjectInstanceName(instanceHandle);
+        } catch (ObjectInstanceNotKnown e) {
+            throw new ObjectInstanceCreationException("Name of newly-created HLA object instance with the handle <" + instanceHandle + "> could not be retrieved from RTI.", e);
+        }
+
+        HLAObjectInstance objectInstance = new HLAObjectInstance.Builder()
+                .withName(objectInstanceName)
+                .withObjectClass(objectClass)
+                .withHandle(instanceHandle)
+                .withAttributes(attributes)
+                .forObject(object)
+                .build();
+
+        this.objectInstances.add(objectInstance);
+        logger.info("HLA object instance <{}> created.", objectInstanceName);
+
+        return objectInstanceName;
+    }
+
+    public Future<Void> registerObjectInstance(Object object, String name) {
+        if (object == null) {
+            throw new IllegalArgumentException("Cannot create an HLA object instance with a NULL object.");
+        }
+
+        FutureTask<Void> task = new FutureTask<>(() -> {
+            if (getObjectInstance(objInstance -> objInstance.getName().equals(name) && objInstance.getInstance() != null) == null) {
+                SKAnnotatedTypeParser.ParsedStructure objectMetadata = this.parser.parseObjectInstance(object);
+                String objectClassName = objectMetadata.getClassNameInFom();
+                Set<SKAnnotatedTypeParser.Trait> attributes = objectMetadata.getTraits();
+
+                HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(objectClassName));
+                if (objectClass == null) {
+                    throw new ObjectInstanceCreationException("Object class <" + objectClassName + "> is unknown. It may not have been previously published/subscribed by this federate.");
+                }
+                ObjectClassHandle objectClassHandle = objectClass.getHandle();
+
+                if (!reserveName(name)) {
+                    throw new ObjectInstanceCreationException("Unable to register HLA object instance with the name <" + name + ">.");
+                }
+
+                ObjectInstanceHandle instanceHandle = rtiAmbassador.registerObjectInstance(objectClassHandle, name);
+
+                HLAObjectInstance objectInstance = new HLAObjectInstance.Builder()
+                        .withName(name)
+                        .withObjectClass(objectClass)
+                        .withHandle(instanceHandle)
+                        .withAttributes(attributes)
+                        .forObject(object)
+                        .build();
+
+                this.objectInstances.add(objectInstance);
+                logger.info("Object instance with assigned name <{}> created.", name);
+            } else {
+                logger.warn("Attempt made to create an HLA object instance with the name <{}> that already exists.", name);
+            }
+
+            return null;
+        });
+
+        /*
+        FutureTask<Void> task1 = new FutureTask<>(() -> {
+            if (getObjectInstance(objInstance -> objInstance.getInstance() != null && objInstance.getName().equals(name)) == null) {
+                SKAnnotatedTypeParser.ParsedStructure objectMetadata = this.parser.parseObjectInstance(object);
+                String objectClassName = objectMetadata.getClassNameInFom();
+                Set<SKAnnotatedTypeParser.Trait> attributes = objectMetadata.getTraits();
+
+                HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(objectClassName));
+
+                if (objectClass == null) {
+                    throw new ObjectInstanceCreationException("Object class <" + objectClassName + "> is unknown. It may not have been previously published/subscribed by this federate.");
+                }
+
+                ObjectClassHandle objectClassHandle = objectClass.getHandle();
+
+                ObjectInstanceHandle instanceHandle = null;
+                String objectInstanceName;
+                try {
+                    if (name != null) {
+                        if (!reserveName(name)) {
+                            throw new ObjectInstanceCreationException("Unable to register object instance with the name <" + name + ">.");
+                        }
+
+                        objectInstanceName = name;
+                        instanceHandle = rtiAmbassador.registerObjectInstance(objectClassHandle, objectInstanceName);
+                    } else {
+                        instanceHandle = rtiAmbassador.registerObjectInstance(objectClassHandle);
+                        objectInstanceName = rtiAmbassador.getObjectInstanceName(instanceHandle);
+                    }
+                } catch (ObjectInstanceNameNotReserved e) {
+                    throw new ObjectInstanceCreationException("The object instance <" + name + "> was not created because its name could not be reserved.", e);
+                } catch (ObjectInstanceNotKnown e) {
+                    throw new ObjectInstanceCreationException("Name of newly-created object instance with the handle <" + instanceHandle + "> could not be retrieved from RTI.", e);
+                }
+
+                HLAObjectInstance objectInstance = new HLAObjectInstance.Builder()
+                        .withName(objectInstanceName)
+                        .withObjectClass(objectClass)
+                        .withHandle(instanceHandle)
+                        .withAttributes(attributes)
+                        .forObject(object)
+                        .build();
+
+                this.objectInstances.add(objectInstance);
+                logger.info("Object instance <{}> created.", objectInstanceName);
+            } else {
+                logger.warn("Attempt made to create an object instance with the name <{}> that already exists.", name);
+            }
+
+            return null;
+        });
+         */
+
+        this.executor.submit(task);
+        return task;
     }
 
     public void updateAttributeValues(Object object, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, AttributeNotOwned {
@@ -178,7 +264,7 @@ public final class HLAObjectManager {
 
     private boolean reserveName(String name) throws FederateNotExecutionMember, RestoreInProgress, IllegalName, NotConnected, RTIinternalError, SaveInProgress {
         if (name == null) {
-            throw new IllegalArgumentException("Name for object instance cannot be null.");
+            throw new IllegalArgumentException("Cannot reserve a name that is NULL.");
         }
 
         Future<Boolean> task = this.callbackManager.invokeNameReservationCallback(name);

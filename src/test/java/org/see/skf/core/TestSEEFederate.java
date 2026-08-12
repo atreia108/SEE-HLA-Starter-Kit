@@ -42,13 +42,6 @@ public class TestSEEFederate extends SEEFederate {
 
             subscribeObjectClass("HLAobjectRoot.ExecutionConfiguration", "root_frame_name", "scenario_time_epoch", "current_execution_mode", "next_execution_mode");
             subscribeObjectClass("HLAobjectRoot.ReferenceFrame", "name", "parent_name");
-
-            this.spaceport = new PhysicalEntity();
-            createObjectInstance(spaceport, "brunel_spaceport");
-
-            Vector3 accel = this.spaceport.getAcceleration();
-            this.spaceport.setAcceleration(new Vector3(accel.getX() + 1.0, accel.getY() + 1.0, accel.getZ() + 1.0));
-            updateObjectInstance(spaceport, "acceleration");
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -56,7 +49,22 @@ public class TestSEEFederate extends SEEFederate {
 
     @Override
     protected void declareObjectInstances() {
+        this.spaceport = new PhysicalEntity();
+        Future<Void> future = createObjectInstance(spaceport, "MoonCentricFixed");
+        try {
+            future.get();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionException ignore) {}
 
+        Vector3 accel = this.spaceport.getAcceleration();
+        this.spaceport.setAcceleration(new Vector3(accel.getX() + 1.0, accel.getY() + 1.0, accel.getZ() + 1.0));
+
+        try {
+            updateObjectInstance(spaceport, "acceleration");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
@@ -93,7 +101,7 @@ public class TestSEEFederate extends SEEFederate {
             this.spaceport.setAcceleration(new Vector3(accel.getX() + 1.0, accel.getY() + 1.0, accel.getZ() + 1.0));
             updateObjectInstance(spaceport, "acceleration");
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            // throw new RuntimeException(e);
         }
     }
 

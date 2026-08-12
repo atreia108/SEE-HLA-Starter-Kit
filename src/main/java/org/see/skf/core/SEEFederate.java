@@ -3,10 +3,8 @@ package org.see.skf.core;
 import hla.rti1516_2025.exceptions.*;
 
 import java.io.File;
-import java.util.Arrays;
-import java.util.List;
 
-public abstract class SEEFederate extends SKFederate {
+public abstract class SEEFederate extends SKFederateBase {
 
     protected SEEFederate(File configurationFile, String... requiredObjects) {
         super(configurationFile);
@@ -17,19 +15,15 @@ public abstract class SEEFederate extends SKFederate {
     @Override
     public void configureAndStart() {
         try {
-            connectToRTI();
+            connectToRti();
             joinFederationExecution();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
         // initializeExCO();
-        try {
-            declareClasses();
-            // declareObjectInstances();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        declareClasses();
+        declareObjectInstances();
         // TODO - Wait for all required objects to be discovered.
         // setupTimeManagement();
 
@@ -47,7 +41,7 @@ public abstract class SEEFederate extends SKFederate {
         // TODO - Subscribe to ExCO object class attributes and enter a blocking loop that waits for the ExCO object instance to be "fully discovered".
     }
 
-    protected abstract void declareClasses() throws HLAClassDeclarationException, FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress;
+    protected abstract void declareClasses();
 
     protected abstract void declareObjectInstances();
 }

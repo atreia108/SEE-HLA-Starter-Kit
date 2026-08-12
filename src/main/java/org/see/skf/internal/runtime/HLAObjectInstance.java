@@ -100,6 +100,8 @@ public final class HLAObjectInstance {
             String loggableAttributeNames = getNamesInLoggableFormat(attributeNames);
             logger.debug("Dispatched updates for object instance <{}> attributes: {}", this.name, loggableAttributeNames);
         } catch (AttributeNotDefined e) {
+            // The object instance should, in theory, have valid attribute serialization and handle information.
+            // Therefore, this exception is highly unlikely to be thrown since the framework performs all the necessary validation during object class/instance creation.
             throw new ObjectInstanceUpdateException(e);
         } catch (ObjectInstanceNotKnown ignore) {
             logger.error("Updates not sent for the object instance <{}>. It may have been previously deleted.", this.name);
