@@ -50,7 +50,7 @@ class SKFederateConfigurationTest {
 
     @Test
     void testValidConfigProperties() {
-        SKFederateConfiguration validConfig = new SKFederateConfiguration(validConfigFile);
+        FederatePropertyConfiguration validConfig = new FederatePropertyConfiguration(validConfigFile);
 
         assertEquals("localhost:8989", validConfig.rtiAddress());
         assertEquals("SEE 2027", validConfig.federationName());
@@ -63,7 +63,7 @@ class SKFederateConfigurationTest {
     }
 
     private boolean configFomModulesAreValid(File configFile) {
-        SKFederateConfiguration config = new SKFederateConfiguration(configFile);
+        FederatePropertyConfiguration config = new FederatePropertyConfiguration(configFile);
 
         for (String moduleFilePath : config.additionalFomModules()) {
             if (moduleFilePath == null || !configFile.exists()) {
@@ -86,39 +86,39 @@ class SKFederateConfigurationTest {
         BufferedWriter writer = overwriteAndGet();
 
         copyAndRemoveLine(RTI_ADDRESS_PROPERTY, reader, writer, inputStream);
-        assertThrows(InvalidFederateConfigurationException.class, () -> new SKFederateConfiguration(tempConfigFile));
+        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(tempConfigFile));
         writeLine(writer, RTI_ADDRESS_PROPERTY);
-        assertDoesNotThrow(() -> new SKFederateConfiguration(tempConfigFile));
+        assertDoesNotThrow(() -> new FederatePropertyConfiguration(tempConfigFile));
 
         copyAndRemoveLine(FEDERATION_NAME_PROPERTY, reader, writer, inputStream);
-        assertThrows(InvalidFederateConfigurationException.class, () -> new SKFederateConfiguration(tempConfigFile));
+        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(tempConfigFile));
         writeLine(writer, FEDERATION_NAME_PROPERTY);
-        assertDoesNotThrow(() -> new SKFederateConfiguration(tempConfigFile));
+        assertDoesNotThrow(() -> new FederatePropertyConfiguration(tempConfigFile));
 
         copyAndRemoveLine(FEDERATE_NAME_PROPERTY, reader, writer, inputStream);
-        assertThrows(InvalidFederateConfigurationException.class, () -> new SKFederateConfiguration(tempConfigFile));
+        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(tempConfigFile));
         writeLine(writer, FEDERATE_NAME_PROPERTY);
-        assertDoesNotThrow(() -> new SKFederateConfiguration(tempConfigFile));
+        assertDoesNotThrow(() -> new FederatePropertyConfiguration(tempConfigFile));
 
         copyAndRemoveLine(FEDERATE_TYPE_PROPERTY, reader, writer, inputStream);
-        assertThrows(InvalidFederateConfigurationException.class, () -> new SKFederateConfiguration(tempConfigFile));
+        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(tempConfigFile));
         writeLine(writer, FEDERATE_TYPE_PROPERTY);
-        assertDoesNotThrow(() -> new SKFederateConfiguration(tempConfigFile));
+        assertDoesNotThrow(() -> new FederatePropertyConfiguration(tempConfigFile));
 
         copyAndRemoveLine(LOOKAHEAD_PROPERTY, reader, writer, inputStream);
-        assertThrows(InvalidFederateConfigurationException.class, () -> new SKFederateConfiguration(tempConfigFile));
+        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(tempConfigFile));
         writeLine(writer, LOOKAHEAD_PROPERTY);
-        assertDoesNotThrow(() -> new SKFederateConfiguration(tempConfigFile));
+        assertDoesNotThrow(() -> new FederatePropertyConfiguration(tempConfigFile));
 
         copyAndRemoveLine(MAX_THREADS_PROPERTY, reader, writer, inputStream);
-        assertDoesNotThrow(() -> new SKFederateConfiguration(tempConfigFile));
+        assertDoesNotThrow(() -> new FederatePropertyConfiguration(tempConfigFile));
         writeLine(writer, MAX_THREADS_PROPERTY);
-        assertDoesNotThrow(() -> new SKFederateConfiguration(tempConfigFile));
+        assertDoesNotThrow(() -> new FederatePropertyConfiguration(tempConfigFile));
 
         copyAndRemoveLine(FOM_DIRECTORY_PROPERTY, reader, writer, inputStream);
-        assertEquals(0, new SKFederateConfiguration(tempConfigFile).additionalFomModules().length);
+        assertEquals(0, new FederatePropertyConfiguration(tempConfigFile).additionalFomModules().length);
         writeLine(writer, FOM_DIRECTORY_PROPERTY);
-        assertTrue(new SKFederateConfiguration(tempConfigFile).additionalFomModules().length > 0);
+        assertTrue(new FederatePropertyConfiguration(tempConfigFile).additionalFomModules().length > 0);
 
         assertTrue(configFomModulesAreValid(tempConfigFile));
 

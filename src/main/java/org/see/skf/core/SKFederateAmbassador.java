@@ -28,6 +28,7 @@ package org.see.skf.core;
 
 import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.FederateInternalError;
+import hla.rti1516_2025.time.HLAinteger64Time;
 import hla.rti1516_2025.time.LogicalTime;
 import org.see.skf.internal.FederateMapping;
 import org.see.skf.internal.runtime.HLAObjectManager;
@@ -71,7 +72,7 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
         // A callback may have elicited this update, or it's just a casual instance attribute update callback from the RTI. Either way, the write operation should not be repeated twice for the object instance.
         this.executor.submit(() -> {
             if (!this.callbackManager.completeReflectAttributeValueCallback(instanceHandle, attributeValues)) {
-                this.objectManager.remoteObjectInstanceUpdate(instanceHandle, attributeValues);
+                this.objectManager.remoteObjectInstanceUpdateReceived(instanceHandle, attributeValues);
             }
         });
     }
@@ -99,6 +100,21 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
     @Override
     public void receiveInteraction(InteractionClassHandle interactionClass, ParameterHandleValueMap parameterValues, byte[] userSuppliedTag, TransportationTypeHandle transportationType, FederateHandle producingFederate, RegionHandleSet optionalSentRegions, LogicalTime<?, ?> time, OrderType sentOrderType, OrderType receivedOrderType, MessageRetractionHandle optionalRetraction) throws FederateInternalError {
+
+    }
+
+    @Override
+    public void timeConstrainedEnabled(LogicalTime<?, ?> time) throws FederateInternalError {
+        this.executor.submit(() -> this.callbackManager.completeTimeConstrainedCallback((HLAinteger64Time) time));
+    }
+
+    @Override
+    public void timeRegulationEnabled(LogicalTime<?, ?> time) throws FederateInternalError {
+        this.executor.submit(() -> this.callbackManager.completeTimeRegulationCallback((HLAinteger64Time) time));
+    }
+
+    @Override
+    public void timeAdvanceGrant(LogicalTime<?, ?> time) throws FederateInternalError {
 
     }
 

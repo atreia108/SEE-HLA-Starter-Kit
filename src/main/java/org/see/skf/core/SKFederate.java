@@ -7,9 +7,11 @@ import java.util.concurrent.Future;
 
 public interface SKFederate {
 
+    void configureAndStart() throws RTIexception;
+
     void connectToRti() throws Unauthorized, ConnectionFailed;
 
-    void joinFederationExecution() throws RestoreInProgress, Unauthorized, NotConnected, RTIinternalError, SaveInProgress;
+    void joinFederationExecution() throws RestoreInProgress, Unauthorized, NotConnected, RTIinternalError, SaveInProgress, FederateNotExecutionMember;
 
     void publishObjectClass(String className, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress;
 
@@ -21,7 +23,9 @@ public interface SKFederate {
 
     void updateObjectInstance(Object objectInstance, String... attributes) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress;
 
-    <T> Future<T> queryObjectInstance(T object, String name);
+    <T> Future<T> trackRemoteObjectInstance(T object, String name);
+
+    Object queryRemoteObjectInstance(String name);
 
     void addObjectInstanceListener(ObjectInstanceListener listener);
 
@@ -34,4 +38,13 @@ public interface SKFederate {
     void addInteractionListener(InteractionListener listener);
 
     void removeInteractionListener(InteractionListener listener);
+
+    double getSimulationTime();
+
+    boolean isAdvancing();
+
+    String getName();
+
+    String getType();
+
 }

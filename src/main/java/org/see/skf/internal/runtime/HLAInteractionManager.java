@@ -26,4 +26,16 @@ public final class HLAInteractionManager {
         this.interactionClasses = new CopyOnWriteArraySet<>();
         this.interactionListeners = new CopyOnWriteArraySet<>();
     }
+
+    public void addInteractionListener(InteractionListener listener) {
+        if (listener != null) {
+            this.interactionListeners.add(listener);
+        }
+    }
+
+    public void removeInteractionListener(InteractionListener listener) {
+        if (listener != null) {
+            this.interactionListeners.remove(listener);
+        }
+    }
 }

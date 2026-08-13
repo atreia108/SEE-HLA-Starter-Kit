@@ -1,5 +1,6 @@
 package org.see.skf.core;
 
+import hla.rti1516_2025.exceptions.RTIexception;
 import org.see.skf.runtime.models.PhysicalEntity;
 import org.see.skf.runtime.models.ReferenceFrame;
 import org.see.skf.runtime.models.Vector3;
@@ -21,34 +22,12 @@ public class TestSEEFederate extends SEEFederate {
 
     @Override
     protected void declareClasses() {
-        try {
-            publishObjectClass("HLAobjectRoot.PhysicalEntity",
-                    "name", "type", "status", "parent_reference_frame",
-                    "state", "acceleration", "rotational_acceleration", "center_of_mass", "body_wrt_structural");
 
-            /*
-            subscribeObjectClass("HLAobjectRoot.PhysicalEntity",
-                    "name", "type", "status", "parent_reference_frame");
-
-            publishObjectClass("HLAobjectRoot.PhysicalEntity.DynamicalEntity",
-                    "name", "type", "status", "parent_reference_frame",
-                    "state", "acceleration", "rotational_acceleration", "center_of_mass", "body_wrt_structural",
-                    "force", "torque", "mass", "mass_rate", "inertia", "inertia_rate");
-
-            subscribeObjectClass("HLAobjectRoot.PhysicalEntity.DynamicalEntity",
-                    "name", "type", "status", "parent_reference_frame",
-                    "force", "torque", "mass", "mass_rate", "inertia", "inertia_rate");
-             */
-
-            subscribeObjectClass("HLAobjectRoot.ExecutionConfiguration", "root_frame_name", "scenario_time_epoch", "current_execution_mode", "next_execution_mode");
-            subscribeObjectClass("HLAobjectRoot.ReferenceFrame", "name", "parent_name");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Override
     protected void declareObjectInstances() {
+        /*
         this.spaceport = new PhysicalEntity();
         Future<Void> future = createObjectInstance(spaceport, "MoonCentricFixed");
         try {
@@ -65,12 +44,14 @@ public class TestSEEFederate extends SEEFederate {
         } catch (Exception e) {
             e.printStackTrace();
         }
+         */
     }
 
     @Override
     protected void update() {
+        /*
         if (executionConfiguration == null) {
-            Future<ExecutionConfiguration> exCO = queryObjectInstance(new ExecutionConfiguration(), "ExCO");
+            Future<ExecutionConfiguration> exCO = trackRemoteObjectInstance(new ExecutionConfiguration(), "ExCO");
 
             new Thread(() -> {
                 try {
@@ -85,7 +66,7 @@ public class TestSEEFederate extends SEEFederate {
         }
 
         if (referenceFrame == null) {
-            Future<ReferenceFrame> frame = queryObjectInstance(new ReferenceFrame(), "SeeLunarSouthPoleBaseLocalFixed");
+            Future<ReferenceFrame> frame = trackRemoteObjectInstance(new ReferenceFrame(), "SeeLunarSouthPoleBaseLocalFixed");
             new Thread(() -> {
                 try {
                     this.referenceFrame = frame.get();
@@ -103,9 +84,10 @@ public class TestSEEFederate extends SEEFederate {
         } catch (Exception e) {
             // throw new RuntimeException(e);
         }
+         */
     }
 
-    public static void main(String[] args) {
-        TestSEEFederate federate = new TestSEEFederate(confFile);
+    public static void main(String[] args) throws RTIexception {
+        new TestSEEFederate(confFile).configureAndStart();
     }
 }

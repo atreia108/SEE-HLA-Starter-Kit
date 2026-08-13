@@ -3,42 +3,54 @@ package org.see.skf.core;
 import hla.rti1516_2025.exceptions.*;
 
 import java.io.File;
+import java.util.concurrent.ExecutionException;
 
 public abstract class SEEFederate extends SKFederateBase {
 
-    protected SEEFederate(File configurationFile, String... requiredObjects) {
-        super(configurationFile);
+    private final String[] requiredObjectNames;
 
-        // TODO - Manage discovery of required objects
+    protected SEEFederate(File configurationFile, String... requiredObjectNames) {
+        super(configurationFile);
+        this.requiredObjectNames = requiredObjectNames;
     }
 
     @Override
-    public void configureAndStart() {
-        try {
-            connectToRti();
-            joinFederationExecution();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public final void configureAndStart() throws RTIexception {
+        connectToRti();
+        joinFederationExecution();
+        declareSRFOMExecutiveClasses();
+        ExecutionConfiguration exCO = initializeExCO();
 
-        // initializeExCO();
+        // Publish/subscribe user specified object and interaction classes as well as await discovery of required objects.
         declareClasses();
         declareObjectInstances();
-        // TODO - Wait for all required objects to be discovered.
-        // setupTimeManagement();
+        waitForRequiredObjects();
 
-        try {
-            while (true) {
-                update();
-                Thread.sleep(1000L);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        setupTimeManagement(exCO.getScenarioTimeEpoch());
+        advanceToLogicalTimeBoundary(exCO.getLeastCommonTimeStep());
     }
 
-    private void initializeExCO() {
-        // TODO - Subscribe to ExCO object class attributes and enter a blocking loop that waits for the ExCO object instance to be "fully discovered".
+    // TODO - Enable MTR support.
+    private void declareSRFOMExecutiveClasses() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        subscribeObjectClass("HLAobjectRoot.ExecutionConfiguration", "root_frame_name", "scenario_time_epoch", "current_execution_mode", "next_execution_mode", "next_mode_scenario_time", "next_mode_cte_time", "least_common_time_step");
+        // publishInteractionClass("HLAinteractionRoot.ExecutionConfiguration", "execution_mode");
+    }
+
+    private ExecutionConfiguration initializeExCO() {
+        ExecutionConfiguration exCO = new ExecutionConfiguration();
+
+        try {
+            exCO = trackRemoteObjectInstance(exCO, "ExCO").get();
+        } catch (InterruptedException | ExecutionException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Failed to properly initialize ExCO object instance.", e);
+        }
+
+        return exCO;
+    }
+
+    private void waitForRequiredObjects() {
+
     }
 
     protected abstract void declareClasses();

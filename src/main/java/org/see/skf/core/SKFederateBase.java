@@ -32,7 +32,9 @@ import hla.rti1516_2025.ResignAction;
 import hla.rti1516_2025.RtiConfiguration;
 import hla.rti1516_2025.exceptions.*;
 
+import hla.rti1516_2025.time.HLAinteger64TimeFactory;
 import org.see.skf.internal.FederateMapping;
+import org.see.skf.internal.TimeManager;
 import org.see.skf.internal.runtime.*;
 import org.see.skf.internal.callbacks.HLACallbackManager;
 import org.slf4j.Logger;
@@ -40,12 +42,12 @@ import org.slf4j.LoggerFactory;
 
 import java.beans.PropertyChangeListener;
 import java.io.File;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 public abstract class SKFederateBase implements SKFederate {
+
     private static final Logger logger = LoggerFactory.getLogger(SKFederateBase.class);
 
     private final RtiConfiguration rtiConfiguration;
@@ -59,13 +61,12 @@ public abstract class SKFederateBase implements SKFederate {
 
     private final HLAObjectManager objectManager;
     private final HLAInteractionManager interactionManager;
-
-    // private final SimulationTime simTime;
+    private final TimeManager timeManager;
 
     protected SKFederateBase(File configurationFile) {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
 
-        SKFederateConfiguration config = new SKFederateConfiguration(configurationFile);
+        SKFederateConfiguration config = new FederatePropertyConfiguration(configurationFile);
         this.federateName = config.federateName();
         this.federateType = config.federateType();
         this.federationName = config.federationName();
@@ -94,15 +95,11 @@ public abstract class SKFederateBase implements SKFederate {
                 .federateMapping(federateMapping)
                 .build();
 
-        // Lazy initialization of simTime with just the lookAhead parameter. Federation-specific values will follow later
-        // once the values of the ExCO object instance are retrieved.
-        // long lookAhead = config.lookahead();
-        // this.simTime = new SimulationTime(lookAhead);
-
-        configureAndStart();
+        this.timeManager = new TimeManager(config.lookahead(), callbackManager);
     }
 
-    public void connectToRti() throws Unauthorized, ConnectionFailed {
+    @Override
+    public final void connectToRti() throws Unauthorized, ConnectionFailed {
         String rtiAddress = this.rtiConfiguration.rtiAddress();
 
         try {
@@ -116,7 +113,8 @@ public abstract class SKFederateBase implements SKFederate {
         }
     }
 
-    public void joinFederationExecution() throws RestoreInProgress, Unauthorized, NotConnected, RTIinternalError, SaveInProgress {
+    @Override
+    public final void joinFederationExecution() throws RestoreInProgress, Unauthorized, NotConnected, RTIinternalError, SaveInProgress, FederateNotExecutionMember {
         String originalFederateName = this.federateName;
         String suffix = "";
         boolean joined = false;
@@ -142,12 +140,17 @@ public abstract class SKFederateBase implements SKFederate {
             } catch (InvalidFOM | ErrorReadingFOM | CouldNotOpenFOM | InconsistentFOM e) {
                 throw new FederateStartupException("The federation execution <" + this.federationName + "> could not be joined due to problems with parsing the supplied FOM modules.", e);
             } catch (CouldNotCreateLogicalTimeFactory e) {
+                // The lack of a time implementation is catastrophic as none of the succeeding time management procedures will work. This is unfortunately an irrecoverable situation.
                 throw new FederateStartupException(e);
             } catch (CallNotAllowedFromWithinCallback ignore) {
                 // Highly unlikely to occur since the framework shields RTI callbacks from users. They would never have the privilege
                 // to throw this exception in the first place.
             }
         }
+
+        // Now that the federate is part of the federation execution, we can get an appropriate time factory for it.
+        HLAinteger64TimeFactory timeFactory = initializeFederateTimeFactory();
+        this.timeManager.setTimeFactory(timeFactory);
     }
 
     private void attemptJoin() throws CouldNotOpenFOM, NotConnected, InvalidFOM, RTIinternalError, ErrorReadingFOM, CouldNotCreateLogicalTimeFactory, FederateNameAlreadyInUse, RestoreInProgress, CallNotAllowedFromWithinCallback, InconsistentFOM, FederationExecutionDoesNotExist, Unauthorized, FederateAlreadyExecutionMember, SaveInProgress {
@@ -156,6 +159,10 @@ public abstract class SKFederateBase implements SKFederate {
         } else {
             rtiAmbassador.joinFederationExecution(this.federateName, this.federateType, this.federationName);
         }
+    }
+
+    private HLAinteger64TimeFactory initializeFederateTimeFactory() throws FederateNotExecutionMember, NotConnected {
+        return (HLAinteger64TimeFactory) this.rtiAmbassador.getTimeFactory();
     }
 
     public final void shutdownExecution() throws FederateShutdownException {
@@ -169,6 +176,7 @@ public abstract class SKFederateBase implements SKFederate {
         }
     }
 
+    @Override
     public final void publishObjectClass(String className, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
         if (attributeNames.length < 1) {
             throw new IllegalArgumentException("At least one attribute is required to publish the object class <" + className + ">.");
@@ -177,10 +185,12 @@ public abstract class SKFederateBase implements SKFederate {
         this.objectManager.publishObjectClass(className, attributeNames);
     }
 
+    // TODO
     public final void unpublishObjectClass(String className, String... attributes) {
-        // TODO
+
     }
 
+    @Override
     public final void subscribeObjectClass(String className, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
         if (attributeNames.length < 1) {
             throw new IllegalArgumentException("At least one attribute is required to subscribe the object class <" + className + ">.");
@@ -189,18 +199,22 @@ public abstract class SKFederateBase implements SKFederate {
         this.objectManager.subscribeObjectClass(className, attributeNames);
     }
 
+    // TODO
     public final void unsubscribeObjectClass(String className, String... attributes) {
-        // TODO
+
     }
 
+    @Override
     public final String createObjectInstance(Object objectInstance) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         return this.objectManager.registerObjectInstance(objectInstance);
     }
 
+    @Override
     public final Future<Void> createObjectInstance(Object objectInstance, String name) {
         return this.objectManager.registerObjectInstance(objectInstance, name);
     }
 
+    @Override
     public final void updateObjectInstance(Object objectInstance, String... attributes) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
         if (attributes.length < 1) {
             throw new IllegalArgumentException("At least one attribute is required to update an object instance.");
@@ -214,62 +228,82 @@ public abstract class SKFederateBase implements SKFederate {
 
     }
 
-    public final <T> Future<T> queryObjectInstance(T object, String name) {
+    @Override
+    public final <T> Future<T> trackRemoteObjectInstance(T object, String name) {
         return this.objectManager.launchRemoteObjectInstanceQuery(object, name);
     }
 
+    @Override
+    public final Object queryRemoteObjectInstance(String name) {
+        return this.objectManager.queryObjectInstance(name);
+    }
+
+    @Override
     public final void addObjectInstanceListener(ObjectInstanceListener listener) {
         this.objectManager.addObjectInstanceListener(listener);
     }
 
+    @Override
     public final void removeObjectInstanceListener(ObjectInstanceListener listener) {
         this.objectManager.removeObjectInstanceListener(listener);
     }
 
-    public void addPropertyChangeListener(Object objectInstance, String propertyName, PropertyChangeListener listener) {
+    @Override
+    public final void addPropertyChangeListener(Object objectInstance, String propertyName, PropertyChangeListener listener) {
         this.objectManager.addPropertyChangeListener(objectInstance, propertyName, listener);
     }
 
-    public void removePropertyChangeListener(Object objectInstance, String propertyName, PropertyChangeListener listener) {
+    @Override
+    public final void removePropertyChangeListener(Object objectInstance, String propertyName, PropertyChangeListener listener) {
         this.objectManager.removePropertyChangeListener(objectInstance, propertyName, listener);
     }
 
-    // TODO - Object instance deletion.
-    public void destroyObjectInstance() {
-
+    // TODO
+    @Override
+    public final void addInteractionListener(InteractionListener listener) {
+        this.interactionManager.addInteractionListener(listener);
     }
 
     // TODO
-    public void addInteractionListener(InteractionListener listener) {
+    @Override
+    public final void removeInteractionListener(InteractionListener listener) {
+        this.interactionManager.removeInteractionListener(listener);
+    }
 
+    @Override
+    public final String getName() {
+        return this.federateName;
+    }
+
+    @Override
+    public final String getType() {
+        return this.federateType;
+    }
+
+    @Override
+    public final synchronized double getSimulationTime() {
+        return this.timeManager.getSimulationScenarioTime();
     }
 
     // TODO
-    public void removeInteractionListener(InteractionListener listener) {
-
+    @Override
+    public final boolean isAdvancing() {
+        return false;
     }
 
-    public final void setupTimeManagement() {
-        // TODO - Enable time regulation and constraint for messages, then compute and advance to HLTB.
-        // simTime.regulateTime();
-        // simTime.constrainTime();
+    protected final void setupTimeManagement(double federationScenarioTimeEpoch) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        this.timeManager.setFederationScenarioTimeEpoch(federationScenarioTimeEpoch);
+        this.timeManager.constrainTime();
+        this.timeManager.regulateTime();
     }
 
-    public abstract void configureAndStart();
+    protected final void advanceToLogicalTimeBoundary(long leastCommonTimeStep) {
+        this.timeManager.advanceToLogicalTimeBoundary();
+    }
+
+    protected final void advanceTime() {
+        this.timeManager.advanceTime();
+    }
 
     protected abstract void update();
-
-    public final String getName() {
-        return federateName;
-    }
-
-    public final String getType() {
-        return federateType;
-    }
-
-    // TODO - Returns the latest sim time in TJD.
-    public final synchronized double getSimulationTime() {
-        // return simTime.getTJDTime();
-        return 0.0;
-    }
 }

@@ -2,7 +2,10 @@ package org.see.skf.internal.callbacks;
 
 import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.*;
+import hla.rti1516_2025.time.HLAinteger64Interval;
+import hla.rti1516_2025.time.HLAinteger64Time;
 import org.see.skf.core.HLAUtilityFactory;
+import org.see.skf.core.TimeInitializationFailure;
 import org.see.skf.internal.runtime.HLAObjectInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +23,10 @@ public final class HLACallbackManager {
 
     private final Set<NameReservationCallback> nameReservationCallbacks;
     private final Set<ReflectAttributeValuesCallback> reflectAttributeValuesCallbacks;
+
+    private TimeConstrainedEnabledCallback timeConstrainedEnabledCallback;
+    private TimeRegulationEnabledCallback timeRegulationEnabledCallback;
+    private TimeAdvanceGrantCallback timeAdvanceGrantCallback;
 
     public HLACallbackManager(ExecutorService executor) {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
@@ -79,5 +86,71 @@ public final class HLACallbackManager {
             }
         }
         return callbackFound;
+    }
+
+    public Future<HLAinteger64Time> invokeTimeConstrainedCallback() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        this.timeConstrainedEnabledCallback = new TimeConstrainedEnabledCallback(null);
+        FutureTask<HLAinteger64Time> task = this.timeConstrainedEnabledCallback.getTask();
+        this.executor.submit(task);
+
+        try {
+            rtiAmbassador.enableTimeConstrained();
+            task = this.timeConstrainedEnabledCallback.getTask();
+        } catch (InTimeAdvancingState | RequestForTimeConstrainedPending | TimeConstrainedAlreadyEnabled e) {
+            logger.warn("Redundant attempt to time constrain this federate.", e);
+        }
+
+        return task;
+    }
+
+    public void completeTimeConstrainedCallback(HLAinteger64Time newLogicalTime) {
+        if (this.timeConstrainedEnabledCallback != null) {
+            this.timeConstrainedEnabledCallback.complete(newLogicalTime);
+            this.timeConstrainedEnabledCallback = null;
+        }
+    }
+
+    public Future<HLAinteger64Time> invokeTimeRegulationCallback(HLAinteger64Interval lookaheadInLogicalTime) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        this.timeRegulationEnabledCallback = new TimeRegulationEnabledCallback(null);
+        FutureTask<HLAinteger64Time> task = this.timeRegulationEnabledCallback.getTask();
+        this.executor.submit(task);
+
+        try {
+            rtiAmbassador.enableTimeRegulation(lookaheadInLogicalTime);
+            task = this.timeRegulationEnabledCallback.getTask();
+        } catch (InTimeAdvancingState | RequestForTimeRegulationPending | TimeRegulationAlreadyEnabled e) {
+            logger.warn("Redundant attempt to time regulate this federate.", e);
+        } catch (InvalidLookahead e) {
+            throw new TimeInitializationFailure(e);
+        }
+
+        return task;
+    }
+
+    public void completeTimeRegulationCallback(HLAinteger64Time newLogicalTime) {
+        if (this.timeRegulationEnabledCallback != null) {
+            this.timeRegulationEnabledCallback.complete(newLogicalTime);
+            this.timeRegulationEnabledCallback = null;
+        }
+    }
+
+    // TODO
+    public void invokeTimeAdvanceGrantCallback(HLAinteger64Time nextLogicalTime) {
+        try {
+            rtiAmbassador.timeAdvanceRequest(nextLogicalTime);
+        } catch (LogicalTimeAlreadyPassed | InvalidLogicalTime | InTimeAdvancingState e) {
+            throw new RuntimeException(e);
+        }  catch (RequestForTimeRegulationPending | RequestForTimeConstrainedPending e) {
+            throw new RuntimeException(e);
+        }  catch (SaveInProgress e) {
+            throw new RuntimeException(e);
+        } catch (RestoreInProgress | FederateNotExecutionMember | NotConnected | RTIinternalError e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // TODO
+    public void completeTimeAdvanceGrantCallback(HLAinteger64Time grantedTime) {
+
     }
 }

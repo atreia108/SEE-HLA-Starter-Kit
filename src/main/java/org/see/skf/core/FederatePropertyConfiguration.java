@@ -1,0 +1,184 @@
+/*****************************************************************
+ SEE HLA Starter Kit Framework -  A Java library that supports
+ the development of HLA Federates in the Simulation Exploration
+ Experience (SEE) program.
+
+ Copyright (c) 2014, 2026 SMASH Lab - University of Calabria
+ (Italy), Hridyanshu Aatreya - Modelling & Simulation Group (MSG)
+ at Brunel University of London (UK). All rights reserved.
+
+ GNU Lesser General Public License (GNU LGPL).
+
+ This library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 3.0 of the License, or (at your option) any later version.
+
+ This library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+
+ You should have received a copy of the GNU Lesser General Public
+ License along with this library.
+ If not, see http://http://www.gnu.org/licenses/
+ *****************************************************************/
+
+package org.see.skf.core;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+
+final class FederatePropertyConfiguration implements SKFederateConfiguration {
+
+    private static final Logger logger = LoggerFactory.getLogger(FederatePropertyConfiguration.class);
+
+    private static final String RTI_ADDRESS_PROPERTY = "rtiAddress";
+    private static final String FEDERATION_NAME_PROPERTY = "federationName";
+    private static final String FEDERATE_NAME_PROPERTY = "federateName";
+    private static final String FEDERATE_TYPE_PROPERTY = "federateType";
+    private static final String LOOKAHEAD_PROPERTY = "lookahead";
+    private static final String FOM_DIRECTORY_PROPERTY = "fomDirectory";
+    private static final String MAX_THREADS = "maxThreads";
+
+    private final String rtiAddress;
+    private final String federationName;
+    private final String federateName;
+    private final String federateType;
+    private long lookahead;
+    private int maxThreads;
+
+    private final String[] additionalFomModules;
+
+    FederatePropertyConfiguration(File confFile) {
+        Properties configProperties = new Properties();
+
+        try (FileInputStream inputStream = new FileInputStream(confFile)) {
+            configProperties.load(inputStream);
+        } catch (IOException e) {
+            throw new InvalidFederateConfigurationException("I/O problems encountered while attempting to read the configuration file.", e);
+        }
+
+        this.rtiAddress = configProperties.getProperty(RTI_ADDRESS_PROPERTY);
+        this.federationName = configProperties.getProperty(FEDERATION_NAME_PROPERTY);
+        this.federateName = configProperties.getProperty(FEDERATE_NAME_PROPERTY);
+        this.federateType = configProperties.getProperty(FEDERATE_TYPE_PROPERTY);
+
+        validateStringTypeProperties();
+
+        boolean blameMaxThreadsParam = false;
+        try {
+            this.lookahead = Long.parseLong(configProperties.getProperty(LOOKAHEAD_PROPERTY));
+            blameMaxThreadsParam = true;
+            this.maxThreads = Integer.parseInt(configProperties.getProperty(MAX_THREADS));
+        } catch (NumberFormatException e) {
+            if (!blameMaxThreadsParam) {
+                throw new InvalidFederateConfigurationException("Invalid value for <lookahead> property.", e);
+            } else {
+                this.maxThreads = 32;
+                logger.warn("Missing or invalid value for <maxThreads> parameter. Assuming framework-default of 32 maximum threads for use by federate.");
+            }
+        }
+
+        String fomDir = configProperties.getProperty(FOM_DIRECTORY_PROPERTY);
+        this.additionalFomModules = loadFomModules(fomDir);
+
+        // TODO - Remove after v2.1 release
+        // The checks performed in the method below is purely intended to inform users that certain properties carried
+        // over from v1 have been deprecated and their presence in the config file is redundant. It is anticipated that
+        // users will follow these instructions and there won't be a point in keeping this around post-v2.1.
+        warnAboutDeprecatedProperties(configProperties);
+
+        logger.debug("Finished loading configuration properties for <{}>.", this.federateName);
+    }
+
+    private String[] loadFomModules(String path) {
+        if (path != null) {
+            File directory = new File(path);
+
+            if (directory.exists() && directory.isDirectory()) {
+                File[] fomModules = directory.listFiles();
+
+                if (fomModules != null) {
+                    List<String> pathList = new ArrayList<>();
+                    for (File module : fomModules) {
+                        pathList.add(module.getAbsolutePath());
+                    }
+
+                    return pathList.toArray(new String[0]);
+                }
+            }
+        }
+
+        return new String[0];
+    }
+
+    private void validateStringTypeProperties() {
+        if (rtiAddress == null) {
+            throw new InvalidFederateConfigurationException("No value supplied for <rtiAddress> property.");
+        }
+
+        if (federationName == null) {
+            throw new InvalidFederateConfigurationException("No value supplied for <federationName> property.");
+        }
+
+        if (federateName == null) {
+            throw new InvalidFederateConfigurationException("No value supplied for <federateName> property.");
+        }
+
+        if (federateType == null) {
+            throw new InvalidFederateConfigurationException("No value supplied for <federateType> property.");
+        }
+    }
+
+    private void warnAboutDeprecatedProperties(Properties properties) {
+        final String[] deprecatedProperties = new String[] {
+                "federateRole",
+                "asynchronousDelivery",
+                "timeRegulating",
+                "timeConstrained"
+        };
+
+        for (String property : deprecatedProperties) {
+            String value = properties.getProperty(property);
+            if (value != null) {
+                logger.warn("Remove useless property definition <{}> that was deprecated in v2.1 from configuration file.", property);
+            }
+        }
+    }
+
+    public String rtiAddress() {
+        return rtiAddress;
+    }
+
+    public String federationName() {
+        return federationName;
+    }
+
+    public String federateName() {
+        return federateName;
+    }
+
+    public String federateType() {
+        return federateType;
+    }
+
+    public long lookahead() {
+        return lookahead;
+    }
+
+    public int maxThreads() {
+        return maxThreads;
+    }
+
+    public String[] additionalFomModules() {
+        return additionalFomModules;
+    }
+}
