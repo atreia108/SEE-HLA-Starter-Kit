@@ -33,6 +33,7 @@ import hla.rti1516_2025.RtiConfiguration;
 import hla.rti1516_2025.exceptions.*;
 
 import org.see.skf.internal.*;
+import org.see.skf.internal.executive.ExecutiveStateManager;
 import org.see.skf.internal.runtime.*;
 import org.see.skf.internal.callbacks.HLACallbackManager;
 import org.slf4j.Logger;
@@ -41,7 +42,6 @@ import org.slf4j.LoggerFactory;
 import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class SKFederateBase implements SKFederate {
 
@@ -57,6 +57,7 @@ public abstract class SKFederateBase implements SKFederate {
     private final SKFederate.Role federateRole;
     private final SKFederateAmbassador federateAmbassador;
 
+    private final ExecutorService executor;
     private final ExecutiveStateManager executiveStateManager;
     private final HLAObjectManager objectManager;
     private final HLAInteractionManager interactionManager;
@@ -75,8 +76,8 @@ public abstract class SKFederateBase implements SKFederate {
         this.additionalFomModules = config.additionalFomModules();
         this.rtiConfiguration = RtiConfiguration.createConfiguration().withRtiAddress(config.rtiAddress());
 
-        ExecutorService executor = Executors.newFixedThreadPool(config.maxThreads());
-        HLACallbackManager callbackManager = new HLACallbackManager(executor);
+        this.executor = Executors.newFixedThreadPool(config.maxThreads());
+        HLACallbackManager callbackManager = new HLACallbackManager(this.executor);
         FederateMapping federateMapping = new FederateMapping();
 
         CoderManager coderManager = new CoderManager();
@@ -85,13 +86,13 @@ public abstract class SKFederateBase implements SKFederate {
         this.objectManager = new HLAObjectManager.Builder()
                 .callbackManager(callbackManager)
                 .parser(parser)
-                .executor(executor)
+                .executor(this.executor)
                 .build();
 
-        this.interactionManager = new HLAInteractionManager(parser, executor);
+        this.interactionManager = new HLAInteractionManager(parser, this.executor);
 
         this.federateAmbassador = new SKFederateAmbassador.Builder()
-                .executor(executor)
+                .executor(this.executor)
                 .callbackManager(callbackManager)
                 .objectManager(this.objectManager)
                 .federateMapping(federateMapping)
@@ -176,6 +177,8 @@ public abstract class SKFederateBase implements SKFederate {
             // However, if this method is prematurely called then this catch block will be triggered, but it's nothing serious, so it can be safely ignored.
             // Also like in joinFederationExecution(), the CallNotAllowedFromWithinCallback exception is not a problem because the framework hides callbacks from the user.
         }
+
+        this.executor.shutdown();
     }
 
     @Override
@@ -313,6 +316,8 @@ public abstract class SKFederateBase implements SKFederate {
             Thread.currentThread().interrupt();
             throw new ExCONotInitializedException("Cannot proceed with initialization due to failure in acquiring the ExCO object instance.", e);
         }
+
+        addPropertyChangeListener(this.exCO, new ShutdownListener(this.executiveStateManager));
     }
 
     protected final void setupTimeManagement() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {

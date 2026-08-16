@@ -5,7 +5,7 @@ import hla.rti1516_2025.AttributeHandleSet;
 import hla.rti1516_2025.ObjectClassHandle;
 import hla.rti1516_2025.RTIambassador;
 import hla.rti1516_2025.exceptions.*;
-import org.see.skf.core.HLAUtilityFactory;
+import org.see.skf.internal.HLAUtilityFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

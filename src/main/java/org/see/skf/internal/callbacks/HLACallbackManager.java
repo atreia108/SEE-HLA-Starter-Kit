@@ -4,7 +4,7 @@ import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.*;
 import hla.rti1516_2025.time.HLAinteger64Interval;
 import hla.rti1516_2025.time.HLAinteger64Time;
-import org.see.skf.core.HLAUtilityFactory;
+import org.see.skf.internal.HLAUtilityFactory;
 import org.see.skf.internal.runtime.HLAObjectInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

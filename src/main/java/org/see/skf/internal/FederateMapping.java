@@ -3,7 +3,6 @@ package org.see.skf.internal;
 import hla.rti1516_2025.FederateHandle;
 import hla.rti1516_2025.RTIambassador;
 import hla.rti1516_2025.exceptions.*;
-import org.see.skf.core.HLAUtilityFactory;
 
 import java.util.HashMap;
 import java.util.Map;

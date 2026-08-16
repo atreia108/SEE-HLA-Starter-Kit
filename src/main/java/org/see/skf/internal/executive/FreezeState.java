@@ -1,8 +1,8 @@
-package org.see.skf.internal;
+package org.see.skf.internal.executive;
 
-import org.see.skf.core.ExecutionConfiguration;
 import org.see.skf.core.ExecutionMode;
 import org.see.skf.core.SKFederateBase;
+import org.see.skf.internal.TimeManager;
 
 public final class FreezeState implements ExecutiveState {
 

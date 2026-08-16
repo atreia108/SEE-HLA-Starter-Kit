@@ -2,7 +2,7 @@ package org.see.skf.internal.runtime;
 
 import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.*;
-import org.see.skf.core.HLAUtilityFactory;
+import org.see.skf.internal.HLAUtilityFactory;
 import org.see.skf.core.ObjectInstanceListener;
 import org.see.skf.internal.callbacks.HLACallbackManager;
 import org.see.skf.internal.callbacks.NameReservationException;

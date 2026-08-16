@@ -13,7 +13,6 @@ public class TestSEEFederate extends SEEFederate {
     private static final File confFile = new File("src/test/resources/confs/valid.conf");
 
     private PhysicalEntity spaceport;
-    private ExecutionConfiguration executionConfiguration;
     private ReferenceFrame referenceFrame;
 
     protected TestSEEFederate(File configurationFile, String... requiredObjects) {

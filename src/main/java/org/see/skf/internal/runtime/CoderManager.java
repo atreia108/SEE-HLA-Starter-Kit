@@ -27,7 +27,7 @@
 package org.see.skf.internal.runtime;
 
 import hla.rti1516_2025.encoding.EncoderFactory;
-import org.see.skf.core.HLAUtilityFactory;
+import org.see.skf.internal.HLAUtilityFactory;
 import org.see.skf.encoding.Coder;
 
 import java.lang.reflect.InvocationTargetException;

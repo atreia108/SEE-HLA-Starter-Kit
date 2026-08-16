@@ -7,7 +7,6 @@ import hla.rti1516_2025.time.HLAinteger64Interval;
 import hla.rti1516_2025.time.HLAinteger64Time;
 import hla.rti1516_2025.time.HLAinteger64TimeFactory;
 
-import org.see.skf.core.HLAUtilityFactory;
 import org.see.skf.internal.callbacks.HLACallbackManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,4 +1,4 @@
-package org.see.skf.core;
+package org.see.skf.internal;
 
 import hla.rti1516_2025.RTIambassador;
 import hla.rti1516_2025.RtiFactory;

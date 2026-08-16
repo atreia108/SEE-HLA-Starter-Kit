@@ -1,7 +1,7 @@
 package org.see.skf.internal.runtime;
 
 import hla.rti1516_2025.RTIambassador;
-import org.see.skf.core.HLAUtilityFactory;
+import org.see.skf.internal.HLAUtilityFactory;
 import org.see.skf.core.InteractionListener;
 
 import java.util.Set;
