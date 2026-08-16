@@ -3,7 +3,6 @@ package org.see.skf.core;
 import hla.rti1516_2025.exceptions.*;
 
 import java.io.File;
-import java.util.concurrent.ExecutionException;
 
 public abstract class SEEFederate extends SKFederateBase {
 
@@ -19,15 +18,14 @@ public abstract class SEEFederate extends SKFederateBase {
         connectToRti();
         joinFederationExecution();
         declareSRFOMExecutiveClasses();
-        ExecutionConfiguration exCO = initializeExCO();
 
         // Publish/subscribe user specified object and interaction classes as well as await discovery of required objects.
         declareClasses();
         declareObjectInstances();
         waitForRequiredObjects();
 
-        setupTimeManagement(exCO.getScenarioTimeEpoch());
-        advanceToLogicalTimeBoundary(exCO.getLeastCommonTimeStep());
+        setupTimeManagement();
+        exec();
     }
 
     // TODO - Enable MTR support.
@@ -36,24 +34,11 @@ public abstract class SEEFederate extends SKFederateBase {
         // publishInteractionClass("HLAinteractionRoot.ExecutionConfiguration", "execution_mode");
     }
 
-    private ExecutionConfiguration initializeExCO() {
-        ExecutionConfiguration exCO = new ExecutionConfiguration();
-
-        try {
-            exCO = trackRemoteObjectInstance(exCO, "ExCO").get();
-        } catch (InterruptedException | ExecutionException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Failed to properly initialize ExCO object instance.", e);
-        }
-
-        return exCO;
-    }
-
     private void waitForRequiredObjects() {
 
     }
 
-    protected abstract void declareClasses();
+    protected abstract void declareClasses() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
 
     protected abstract void declareObjectInstances();
 }

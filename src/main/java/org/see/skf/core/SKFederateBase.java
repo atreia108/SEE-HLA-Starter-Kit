@@ -32,9 +32,7 @@ import hla.rti1516_2025.ResignAction;
 import hla.rti1516_2025.RtiConfiguration;
 import hla.rti1516_2025.exceptions.*;
 
-import hla.rti1516_2025.time.HLAinteger64TimeFactory;
-import org.see.skf.internal.FederateMapping;
-import org.see.skf.internal.TimeManager;
+import org.see.skf.internal.*;
 import org.see.skf.internal.runtime.*;
 import org.see.skf.internal.callbacks.HLACallbackManager;
 import org.slf4j.Logger;
@@ -42,9 +40,8 @@ import org.slf4j.LoggerFactory;
 
 import java.beans.PropertyChangeListener;
 import java.io.File;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class SKFederateBase implements SKFederate {
 
@@ -57,11 +54,15 @@ public abstract class SKFederateBase implements SKFederate {
     private final String federateType;
     private final String federationName;
     private final String[] additionalFomModules;
+    private final SKFederate.Role federateRole;
     private final SKFederateAmbassador federateAmbassador;
 
+    private final ExecutiveStateManager executiveStateManager;
     private final HLAObjectManager objectManager;
     private final HLAInteractionManager interactionManager;
     private final TimeManager timeManager;
+
+    private ExecutionConfiguration exCO;
 
     protected SKFederateBase(File configurationFile) {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
@@ -70,6 +71,7 @@ public abstract class SKFederateBase implements SKFederate {
         this.federateName = config.federateName();
         this.federateType = config.federateType();
         this.federationName = config.federationName();
+        this.federateRole = config.federateRole();
         this.additionalFomModules = config.additionalFomModules();
         this.rtiConfiguration = RtiConfiguration.createConfiguration().withRtiAddress(config.rtiAddress());
 
@@ -96,6 +98,7 @@ public abstract class SKFederateBase implements SKFederate {
                 .build();
 
         this.timeManager = new TimeManager(config.lookahead(), callbackManager);
+        this.executiveStateManager = new ExecutiveStateManager(this, this.timeManager);
     }
 
     @Override
@@ -148,9 +151,8 @@ public abstract class SKFederateBase implements SKFederate {
             }
         }
 
-        // Now that the federate is part of the federation execution, we can get an appropriate time factory for it.
-        HLAinteger64TimeFactory timeFactory = initializeFederateTimeFactory();
-        this.timeManager.setTimeFactory(timeFactory);
+        // Now that the federate is part of the federation execution, we can initialize logical time related data.
+        this.timeManager.initializeLogicalTimeComponents();
     }
 
     private void attemptJoin() throws CouldNotOpenFOM, NotConnected, InvalidFOM, RTIinternalError, ErrorReadingFOM, CouldNotCreateLogicalTimeFactory, FederateNameAlreadyInUse, RestoreInProgress, CallNotAllowedFromWithinCallback, InconsistentFOM, FederationExecutionDoesNotExist, Unauthorized, FederateAlreadyExecutionMember, SaveInProgress {
@@ -161,18 +163,18 @@ public abstract class SKFederateBase implements SKFederate {
         }
     }
 
-    private HLAinteger64TimeFactory initializeFederateTimeFactory() throws FederateNotExecutionMember, NotConnected {
-        return (HLAinteger64TimeFactory) this.rtiAmbassador.getTimeFactory();
-    }
-
-    public final void shutdownExecution() throws FederateShutdownException {
+    @Override
+    public final void shutdownExecution() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         try {
+            rtiAmbassador.disableTimeRegulation();
+            rtiAmbassador.disableTimeConstrained();
             rtiAmbassador.resignFederationExecution(ResignAction.DELETE_OBJECTS_THEN_DIVEST);
-        } catch (OwnershipAcquisitionPending | FederateOwnsAttributes e) {
+        } catch (OwnershipAcquisitionPending | FederateOwnsAttributes | InvalidResignAction e) {
             throw new FederateShutdownException("Federate shutdown attempt was interrupted by ongoing processes that are yet to be completed.", e);
-        } catch (FederateNotExecutionMember | NotConnected | CallNotAllowedFromWithinCallback | InvalidResignAction |
-                 RTIinternalError e) {
-            throw new FederateShutdownException(e);
+        } catch (CallNotAllowedFromWithinCallback | TimeConstrainedIsNotEnabled | TimeRegulationIsNotEnabled ignore) {
+            // The chances of this being thrown is less because we enable time regulation/constraint during the time management setup phase.
+            // However, if this method is prematurely called then this catch block will be triggered, but it's nothing serious, so it can be safely ignored.
+            // Also like in joinFederationExecution(), the CallNotAllowedFromWithinCallback exception is not a problem because the framework hides callbacks from the user.
         }
     }
 
@@ -254,17 +256,25 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
+    public final void addPropertyChangeListener(Object objectInstance, PropertyChangeListener listener) {
+        this.objectManager.addPropertyChangeListener(objectInstance, null, listener);
+    }
+
+    @Override
     public final void removePropertyChangeListener(Object objectInstance, String propertyName, PropertyChangeListener listener) {
         this.objectManager.removePropertyChangeListener(objectInstance, propertyName, listener);
     }
 
-    // TODO
+    @Override
+    public final void removePropertyChangeListener(Object objectInstance, PropertyChangeListener listener) {
+        this.objectManager.removePropertyChangeListener(objectInstance, null, listener);
+    }
+
     @Override
     public final void addInteractionListener(InteractionListener listener) {
         this.interactionManager.addInteractionListener(listener);
     }
 
-    // TODO
     @Override
     public final void removeInteractionListener(InteractionListener listener) {
         this.interactionManager.removeInteractionListener(listener);
@@ -281,29 +291,57 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
+    public Role getRole() {
+        return this.federateRole;
+    }
+
+    @Override
     public final synchronized double getSimulationTime() {
         return this.timeManager.getSimulationScenarioTime();
     }
 
-    // TODO
     @Override
     public final boolean isAdvancing() {
-        return false;
+        return this.timeManager.isTimeAdvancing();
     }
 
-    protected final void setupTimeManagement(double federationScenarioTimeEpoch) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        this.timeManager.setFederationScenarioTimeEpoch(federationScenarioTimeEpoch);
+    private void receiveExCOUpdates() {
+        Future<ExecutionConfiguration> task = trackRemoteObjectInstance(new ExecutionConfiguration(), "ExCO");
+        try {
+            this.exCO = task.get();
+        } catch (InterruptedException | ExecutionException e) {
+            Thread.currentThread().interrupt();
+            throw new ExCONotInitializedException("Cannot proceed with initialization due to failure in acquiring the ExCO object instance.", e);
+        }
+    }
+
+    protected final void setupTimeManagement() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        receiveExCOUpdates();
+
         this.timeManager.constrainTime();
         this.timeManager.regulateTime();
+
+        double federationScenarioTimeEpoch = this.exCO.getScenarioTimeEpoch();
+        this.timeManager.setFederationScenarioTimeEpoch(federationScenarioTimeEpoch);
+
+        if (this.federateRole == Role.LATE) {
+            this.timeManager.advanceToLogicalTimeBoundary(this.exCO.getLeastCommonTimeStep());
+        } else {
+            earlyJoinerTimeSetupSequence();
+        }
     }
 
-    protected final void advanceToLogicalTimeBoundary(long leastCommonTimeStep) {
-        this.timeManager.advanceToLogicalTimeBoundary();
+    private void earlyJoinerTimeSetupSequence() {
+        // TODO - Early joiner initialization sequence to be added at a later date.
     }
 
-    protected final void advanceTime() {
-        this.timeManager.advanceTime();
+    protected final void exec() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        this.executiveStateManager.run();
     }
 
-    protected abstract void update();
+    public abstract void processRunJobs();
+
+    public abstract void processFreezeJobs();
+
+    public abstract void processShutdownJobs();
 }

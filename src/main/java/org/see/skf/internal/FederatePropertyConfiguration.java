@@ -24,8 +24,9 @@
  If not, see http://http://www.gnu.org/licenses/
  *****************************************************************/
 
-package org.see.skf.core;
+package org.see.skf.internal;
 
+import org.see.skf.core.SKFederate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-final class FederatePropertyConfiguration implements SKFederateConfiguration {
+public final class FederatePropertyConfiguration implements SKFederateConfiguration {
 
     private static final Logger logger = LoggerFactory.getLogger(FederatePropertyConfiguration.class);
 
@@ -46,18 +47,20 @@ final class FederatePropertyConfiguration implements SKFederateConfiguration {
     private static final String FEDERATE_TYPE_PROPERTY = "federateType";
     private static final String LOOKAHEAD_PROPERTY = "lookahead";
     private static final String FOM_DIRECTORY_PROPERTY = "fomDirectory";
+    private static final String FEDERATE_ROLE_PROPERTY = "federateRole";
     private static final String MAX_THREADS = "maxThreads";
 
     private final String rtiAddress;
     private final String federationName;
     private final String federateName;
     private final String federateType;
+    private final SKFederate.Role federateRole;
     private long lookahead;
     private int maxThreads;
 
     private final String[] additionalFomModules;
 
-    FederatePropertyConfiguration(File confFile) {
+    public FederatePropertyConfiguration(File confFile) {
         Properties configProperties = new Properties();
 
         try (FileInputStream inputStream = new FileInputStream(confFile)) {
@@ -70,8 +73,18 @@ final class FederatePropertyConfiguration implements SKFederateConfiguration {
         this.federationName = configProperties.getProperty(FEDERATION_NAME_PROPERTY);
         this.federateName = configProperties.getProperty(FEDERATE_NAME_PROPERTY);
         this.federateType = configProperties.getProperty(FEDERATE_TYPE_PROPERTY);
-
         validateStringTypeProperties();
+
+        String roleName = configProperties.getProperty(FEDERATE_ROLE_PROPERTY);
+        this.federateRole = getFederateRoleParameterValue(roleName);
+
+        String lookaheadValue = configProperties.getProperty(LOOKAHEAD_PROPERTY);
+        this.lookahead = getIntegerParameterValue(lookaheadValue);
+
+        String maxThreadsValue = configProperties.getProperty(MAX_THREADS);
+        // Method return can potentially cause overflow, BUT an untenable high amount of threads in the 64-bit integer
+        // range is not the best way to run things in the first place, so it should be fine.
+        this.maxThreads = (int) getIntegerParameterValue(maxThreadsValue);
 
         boolean blameMaxThreadsParam = false;
         try {
@@ -97,6 +110,24 @@ final class FederatePropertyConfiguration implements SKFederateConfiguration {
         warnAboutDeprecatedProperties(configProperties);
 
         logger.debug("Finished loading configuration properties for <{}>.", this.federateName);
+    }
+
+    private SKFederate.Role getFederateRoleParameterValue(String roleName) {
+        if (roleName.equalsIgnoreCase("late")) {
+            return SKFederate.Role.LATE;
+        } else if (roleName.equalsIgnoreCase("early")) {
+            return SKFederate.Role.EARLY;
+        } else {
+            throw new InvalidFederateConfigurationException("Invalid role name <" + roleName + ">.");
+        }
+    }
+
+    private long getIntegerParameterValue(String paramName) {
+        try {
+            return Long.parseLong(paramName);
+        } catch (NumberFormatException e) {
+            throw new InvalidFederateConfigurationException("Invalid value for <" + paramName + ">.", e);
+        }
     }
 
     private String[] loadFomModules(String path) {
@@ -140,7 +171,6 @@ final class FederatePropertyConfiguration implements SKFederateConfiguration {
 
     private void warnAboutDeprecatedProperties(Properties properties) {
         final String[] deprecatedProperties = new String[] {
-                "federateRole",
                 "asynchronousDelivery",
                 "timeRegulating",
                 "timeConstrained"
@@ -168,6 +198,10 @@ final class FederatePropertyConfiguration implements SKFederateConfiguration {
 
     public String federateType() {
         return federateType;
+    }
+
+    public SKFederate.Role federateRole() {
+        return this.federateRole;
     }
 
     public long lookahead() {

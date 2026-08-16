@@ -27,46 +27,48 @@
 package org.see.skf.core;
 
 import org.junit.jupiter.api.Test;
+import org.see.skf.internal.FederatePropertyConfiguration;
+import org.see.skf.internal.InvalidFederateConfigurationException;
+import org.see.skf.internal.SKFederateConfiguration;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class SKFederateConfigurationTest {
-    private static final String TEST_RESOURCES_PATH = "src" + File.separator + "test" + File.separator + "resources" + File.separator;
-    private static final File validConfigFile = new File(TEST_RESOURCES_PATH + "valid.conf");
 
-    private static final String RTI_ADDRESS_PROPERTY = "rtiAddress = localhost:8989";
-    private static final String FEDERATION_NAME_PROPERTY = "federationName = SEE 2027";
-    private static final String FEDERATE_NAME_PROPERTY = "federateName = Spaceport";
-    private static final String FEDERATE_TYPE_PROPERTY = "federateType = Behavior";
-    private static final String LOOKAHEAD_PROPERTY = "lookahead = 1000000";
-    private static final String MAX_THREADS_PROPERTY = "maxThreads = 16";
-    private static final String FOM_DIRECTORY_PROPERTY = "fomDirectory = src/test/resources/foms";
+    private static final String TEST_CONFIG_RESOURCE_PATH = "src" + File.separator + "test" + File.separator + "resources" + File.separator + "confs" + File.separator;
+
+    private static final File validConf =  new File(TEST_CONFIG_RESOURCE_PATH + "valid.conf");
+    private static final File invalidConf1 = new File(TEST_CONFIG_RESOURCE_PATH + "invalid1.conf");
+    private static final File invalidConf2 = new File(TEST_CONFIG_RESOURCE_PATH + "invalid2.conf");
+    private static final File invalidConf3 = new File(TEST_CONFIG_RESOURCE_PATH + "invalid3.conf");
+    private static final File invalidConf4 = new File(TEST_CONFIG_RESOURCE_PATH + "invalid4.conf");
+    private static final File invalidConf5 = new File(TEST_CONFIG_RESOURCE_PATH + "invalid5.conf");
+    private static final File invalidConf6 = new File(TEST_CONFIG_RESOURCE_PATH + "invalid6.conf");
+    private static final File invalidConf7 = new File(TEST_CONFIG_RESOURCE_PATH + "invalid7.conf");
+    private static final File invalidConf8 = new File(TEST_CONFIG_RESOURCE_PATH + "invalid8.conf");
+
+    private static final File roleParamTestConf1 = new File(TEST_CONFIG_RESOURCE_PATH + "role_param_test_1.conf");
 
     @Test
     void testValidConfigProperties() {
-        FederatePropertyConfiguration validConfig = new FederatePropertyConfiguration(validConfigFile);
+        SKFederateConfiguration config = new FederatePropertyConfiguration(validConf);
 
-        assertEquals("localhost:8989", validConfig.rtiAddress());
-        assertEquals("SEE 2027", validConfig.federationName());
-        assertEquals("Spaceport", validConfig.federateName());
-        assertEquals("Behavior", validConfig.federateType());
-        assertEquals(1000000, validConfig.lookahead());
-        assertEquals(16, validConfig.maxThreads());
-
-        assertTrue(configFomModulesAreValid(validConfigFile));
+        assertEquals("localhost:8989", config.rtiAddress());
+        assertEquals("SEE 2027", config.federationName());
+        assertEquals("Spaceport", config.federateName());
+        assertEquals("Behavior", config.federateType());
+        assertEquals(SKFederate.Role.LATE, config.federateRole());
+        assertEquals(1000000, config.lookahead());
+        assertEquals(16, config.maxThreads());
+        assertTrue(areFomModulesValid(config.additionalFomModules()));
     }
 
-    private boolean configFomModulesAreValid(File configFile) {
-        FederatePropertyConfiguration config = new FederatePropertyConfiguration(configFile);
-
-        for (String moduleFilePath : config.additionalFomModules()) {
-            if (moduleFilePath == null || !configFile.exists()) {
+    private boolean areFomModulesValid(String[] moduleFilePaths) {
+        for (String filePath : moduleFilePaths) {
+            File file = new File(filePath);
+            if (!file.exists()) {
                 return false;
             }
         }
@@ -75,94 +77,17 @@ class SKFederateConfigurationTest {
     }
 
     @Test
-    void testInvalidConfigProperties() throws IOException {
-        String tempFilePath = TEST_RESOURCES_PATH + "invalid.conf";
-        File tempConfigFile = new File(tempFilePath);
+    void testInvalidConfigProperties() {
+        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(invalidConf1));
+        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(invalidConf2));
+        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(invalidConf3));
+        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(invalidConf4));
+        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(invalidConf5));
+        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(invalidConf6));
+        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(invalidConf7));
+        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(invalidConf8));
 
-        assertTrue(tempConfigFile.createNewFile());
-
-        FileInputStream inputStream = new FileInputStream(validConfigFile);
-        BufferedReader reader = setupReader(inputStream);
-        BufferedWriter writer = overwriteAndGet();
-
-        copyAndRemoveLine(RTI_ADDRESS_PROPERTY, reader, writer, inputStream);
-        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(tempConfigFile));
-        writeLine(writer, RTI_ADDRESS_PROPERTY);
-        assertDoesNotThrow(() -> new FederatePropertyConfiguration(tempConfigFile));
-
-        copyAndRemoveLine(FEDERATION_NAME_PROPERTY, reader, writer, inputStream);
-        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(tempConfigFile));
-        writeLine(writer, FEDERATION_NAME_PROPERTY);
-        assertDoesNotThrow(() -> new FederatePropertyConfiguration(tempConfigFile));
-
-        copyAndRemoveLine(FEDERATE_NAME_PROPERTY, reader, writer, inputStream);
-        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(tempConfigFile));
-        writeLine(writer, FEDERATE_NAME_PROPERTY);
-        assertDoesNotThrow(() -> new FederatePropertyConfiguration(tempConfigFile));
-
-        copyAndRemoveLine(FEDERATE_TYPE_PROPERTY, reader, writer, inputStream);
-        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(tempConfigFile));
-        writeLine(writer, FEDERATE_TYPE_PROPERTY);
-        assertDoesNotThrow(() -> new FederatePropertyConfiguration(tempConfigFile));
-
-        copyAndRemoveLine(LOOKAHEAD_PROPERTY, reader, writer, inputStream);
-        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(tempConfigFile));
-        writeLine(writer, LOOKAHEAD_PROPERTY);
-        assertDoesNotThrow(() -> new FederatePropertyConfiguration(tempConfigFile));
-
-        copyAndRemoveLine(MAX_THREADS_PROPERTY, reader, writer, inputStream);
-        assertDoesNotThrow(() -> new FederatePropertyConfiguration(tempConfigFile));
-        writeLine(writer, MAX_THREADS_PROPERTY);
-        assertDoesNotThrow(() -> new FederatePropertyConfiguration(tempConfigFile));
-
-        copyAndRemoveLine(FOM_DIRECTORY_PROPERTY, reader, writer, inputStream);
-        assertEquals(0, new FederatePropertyConfiguration(tempConfigFile).additionalFomModules().length);
-        writeLine(writer, FOM_DIRECTORY_PROPERTY);
-        assertTrue(new FederatePropertyConfiguration(tempConfigFile).additionalFomModules().length > 0);
-
-        assertTrue(configFomModulesAreValid(tempConfigFile));
-
-        writer.close();
-        reader.close();
-        Files.delete(tempConfigFile.toPath());
-    }
-
-    private void copyAndRemoveLine(String targetLine, BufferedReader reader, BufferedWriter writer, FileInputStream inputStream) throws IOException {
-        reader = setupReader(inputStream);
-        writer = overwriteAndGet();
-
-        String currentLine;
-        while ((currentLine = reader.readLine()) != null) {
-            currentLine = currentLine.trim();
-            if (currentLine.equals(targetLine)) {
-                continue;
-            }
-
-            writer.write(currentLine + System.lineSeparator());
-        }
-
-        writer.flush();
-    }
-
-    private void writeLine(BufferedWriter writer, String targetLine) throws IOException {
-        writer = appendAndGet();
-
-        writer.write(targetLine + System.lineSeparator());
-        writer.flush();
-    }
-
-    private BufferedReader setupReader(FileInputStream inStream) throws IOException {
-        inStream.getChannel().position(0);
-        return new BufferedReader(new InputStreamReader(inStream));
-    }
-
-    private BufferedWriter overwriteAndGet() throws IOException {
-        Path pathObject = Paths.get(TEST_RESOURCES_PATH + "invalid.conf");
-        return Files.newBufferedWriter(pathObject, StandardOpenOption.TRUNCATE_EXISTING);
-    }
-
-    private BufferedWriter appendAndGet() throws IOException {
-        Path pathObject = Paths.get(TEST_RESOURCES_PATH + "invalid.conf");
-        return Files.newBufferedWriter(pathObject, StandardOpenOption.APPEND);
+        // Ensure that additional whitespaces in the "role" parameter will yield an exception.
+        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(roleParamTestConf1));
     }
 }

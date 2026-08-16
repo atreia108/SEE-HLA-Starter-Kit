@@ -3,9 +3,9 @@ package org.see.skf.encoding;
 import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAinteger16LE;
-import org.see.skf.core.ExecutionConfiguration;
+import org.see.skf.core.ExecutionMode;
 
-public final class ExecutionModeCoder implements Coder<ExecutionConfiguration.ExecutionMode> {
+public final class ExecutionModeCoder implements Coder<ExecutionMode> {
 
     private final HLAinteger16LE executionModeType;
 
@@ -14,16 +14,16 @@ public final class ExecutionModeCoder implements Coder<ExecutionConfiguration.Ex
     }
 
     @Override
-    public byte[] encode(ExecutionConfiguration.ExecutionMode data) {
+    public byte[] encode(ExecutionMode data) {
         this.executionModeType.setValue(data.getValue());
         return this.executionModeType.toByteArray();
     }
 
     @Override
-    public ExecutionConfiguration.ExecutionMode decode(byte[] data) throws DecoderException {
+    public ExecutionMode decode(byte[] data) throws DecoderException {
         this.executionModeType.decode(data);
         short value = this.executionModeType.getValue();
 
-        return ExecutionConfiguration.ExecutionMode.query(value);
+        return ExecutionMode.query(value);
     }
 }

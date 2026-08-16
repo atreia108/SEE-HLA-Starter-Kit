@@ -319,7 +319,13 @@ public final class HLAObjectManager {
     }
 
     public Object queryObjectInstance(String name) {
-        return getObjectInstance(objInstance -> objInstance.getName().equals(name) && objInstance.getInstance() != null);
+        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getName().equals(name) && objInstance.getInstance() != null);
+
+        if (objectInstance != null) {
+            return objectInstance.getInstance();
+        } else {
+            return null;
+        }
     }
 
     public void addObjectInstanceListener(ObjectInstanceListener objectInstanceListener) {

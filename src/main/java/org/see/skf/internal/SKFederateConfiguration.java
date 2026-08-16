@@ -1,4 +1,6 @@
-package org.see.skf.core;
+package org.see.skf.internal;
+
+import org.see.skf.core.SKFederate;
 
 public interface SKFederateConfiguration {
 
@@ -15,5 +17,7 @@ public interface SKFederateConfiguration {
     int maxThreads();
 
     String[] additionalFomModules();
+
+    SKFederate.Role federateRole();
 
 }

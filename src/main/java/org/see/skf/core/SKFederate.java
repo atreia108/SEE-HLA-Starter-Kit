@@ -13,6 +13,8 @@ public interface SKFederate {
 
     void joinFederationExecution() throws RestoreInProgress, Unauthorized, NotConnected, RTIinternalError, SaveInProgress, FederateNotExecutionMember;
 
+    void shutdownExecution() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
+
     void publishObjectClass(String className, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress;
 
     void subscribeObjectClass(String className, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress;
@@ -31,9 +33,13 @@ public interface SKFederate {
 
     void removeObjectInstanceListener(ObjectInstanceListener listener);
 
+    void addPropertyChangeListener(Object objectInstance, PropertyChangeListener listener);
+
     void addPropertyChangeListener(Object objectInstance, String propertyName, PropertyChangeListener listener);
 
     void removePropertyChangeListener(Object objectInstance, String propertyName, PropertyChangeListener listener);
+
+    void removePropertyChangeListener(Object objectInstance, PropertyChangeListener listener);
 
     void addInteractionListener(InteractionListener listener);
 
@@ -47,4 +53,10 @@ public interface SKFederate {
 
     String getType();
 
+    Role getRole();
+
+    enum Role {
+        EARLY,
+        LATE
+    }
 }

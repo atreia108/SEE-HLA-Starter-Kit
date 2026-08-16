@@ -1,6 +1,6 @@
 package org.see.skf.core;
 
-import hla.rti1516_2025.exceptions.RTIexception;
+import hla.rti1516_2025.exceptions.*;
 import org.see.skf.runtime.models.PhysicalEntity;
 import org.see.skf.runtime.models.ReferenceFrame;
 import org.see.skf.runtime.models.Vector3;
@@ -10,7 +10,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 public class TestSEEFederate extends SEEFederate {
-    private static final File confFile = new File("src/test/resources/valid.conf");
+    private static final File confFile = new File("src/test/resources/confs/valid.conf");
 
     private PhysicalEntity spaceport;
     private ExecutionConfiguration executionConfiguration;
@@ -21,15 +21,14 @@ public class TestSEEFederate extends SEEFederate {
     }
 
     @Override
-    protected void declareClasses() {
-
+    protected void declareClasses() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        publishObjectClass("HLAobjectRoot.PhysicalEntity", "acceleration");
     }
 
     @Override
     protected void declareObjectInstances() {
-        /*
         this.spaceport = new PhysicalEntity();
-        Future<Void> future = createObjectInstance(spaceport, "MoonCentricFixed");
+        Future<Void> future = createObjectInstance(this.spaceport, "brunel_spaceport");
         try {
             future.get();
         } catch (InterruptedException e) {
@@ -44,27 +43,11 @@ public class TestSEEFederate extends SEEFederate {
         } catch (Exception e) {
             e.printStackTrace();
         }
-         */
     }
 
     @Override
-    protected void update() {
+    public void processRunJobs() {
         /*
-        if (executionConfiguration == null) {
-            Future<ExecutionConfiguration> exCO = trackRemoteObjectInstance(new ExecutionConfiguration(), "ExCO");
-
-            new Thread(() -> {
-                try {
-                    this.executionConfiguration = exCO.get();
-                    System.out.println("ExCO is now initialized!");
-                } catch (InterruptedException | ExecutionException e) {
-                    throw new RuntimeException(e);
-                }
-            }).start();
-        } else {
-            System.out.println("ExCO [ root_frame_name: " + executionConfiguration.getRootFrameName() + ", scenario_time_epoch: " + executionConfiguration.getScenarioTimeEpoch() + ", current_execution_mode: " + executionConfiguration.getCurrentExecutionMode() + " ]");
-        }
-
         if (referenceFrame == null) {
             Future<ReferenceFrame> frame = trackRemoteObjectInstance(new ReferenceFrame(), "SeeLunarSouthPoleBaseLocalFixed");
             new Thread(() -> {
@@ -76,6 +59,7 @@ public class TestSEEFederate extends SEEFederate {
                 }
             }).start();
         }
+         */
 
         try {
             Vector3 accel = this.spaceport.getAcceleration();
@@ -84,7 +68,16 @@ public class TestSEEFederate extends SEEFederate {
         } catch (Exception e) {
             // throw new RuntimeException(e);
         }
-         */
+    }
+
+    @Override
+    public void processFreezeJobs() {
+
+    }
+
+    @Override
+    public void processShutdownJobs() {
+
     }
 
     public static void main(String[] args) throws RTIexception {

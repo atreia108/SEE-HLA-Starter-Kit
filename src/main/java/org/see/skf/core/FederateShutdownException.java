@@ -1,6 +1,6 @@
 package org.see.skf.core;
 
-public final class FederateShutdownException extends Exception {
+public final class FederateShutdownException extends RuntimeException {
     FederateShutdownException(String message) {
         super(message);
     }

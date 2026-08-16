@@ -115,7 +115,7 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
     @Override
     public void timeAdvanceGrant(LogicalTime<?, ?> time) throws FederateInternalError {
-
+        this.executor.submit(() -> this.callbackManager.completeTimeAdvanceGrantCallback((HLAinteger64Time) time));
     }
 
     static final class Builder {

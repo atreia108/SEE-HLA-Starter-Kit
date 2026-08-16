@@ -24,7 +24,7 @@
  If not, see http://http://www.gnu.org/licenses/
  *****************************************************************/
 
-package org.see.skf.core;
+package org.see.skf.internal;
 
 /**
  * Unchecked exception thrown when erroneous properties are detected in the federate configuration file during federate
@@ -33,7 +33,8 @@ package org.see.skf.core;
  * @author Hridyanshu Aatreya
  * @since 2.1
  */
-final class InvalidFederateConfigurationException extends RuntimeException {
+public final class InvalidFederateConfigurationException extends RuntimeException {
+
     InvalidFederateConfigurationException(String message) {
         super(message);
     }

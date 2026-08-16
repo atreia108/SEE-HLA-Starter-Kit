@@ -5,7 +5,6 @@ import hla.rti1516_2025.exceptions.*;
 import hla.rti1516_2025.time.HLAinteger64Interval;
 import hla.rti1516_2025.time.HLAinteger64Time;
 import org.see.skf.core.HLAUtilityFactory;
-import org.see.skf.core.TimeInitializationFailure;
 import org.see.skf.internal.runtime.HLAObjectInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,7 +94,6 @@ public final class HLACallbackManager {
 
         try {
             rtiAmbassador.enableTimeConstrained();
-            task = this.timeConstrainedEnabledCallback.getTask();
         } catch (InTimeAdvancingState | RequestForTimeConstrainedPending | TimeConstrainedAlreadyEnabled e) {
             logger.warn("Redundant attempt to time constrain this federate.", e);
         }
@@ -117,11 +115,10 @@ public final class HLACallbackManager {
 
         try {
             rtiAmbassador.enableTimeRegulation(lookaheadInLogicalTime);
-            task = this.timeRegulationEnabledCallback.getTask();
         } catch (InTimeAdvancingState | RequestForTimeRegulationPending | TimeRegulationAlreadyEnabled e) {
             logger.warn("Redundant attempt to time regulate this federate.", e);
         } catch (InvalidLookahead e) {
-            throw new TimeInitializationFailure(e);
+            throw new RuntimeException(e);
         }
 
         return task;
@@ -134,23 +131,26 @@ public final class HLACallbackManager {
         }
     }
 
-    // TODO
-    public void invokeTimeAdvanceGrantCallback(HLAinteger64Time nextLogicalTime) {
+    public Future<HLAinteger64Time> invokeTimeAdvanceGrantCallback(HLAinteger64Time nextLogicalTime) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        this.timeAdvanceGrantCallback = new TimeAdvanceGrantCallback(null);
+        FutureTask<HLAinteger64Time> task = this.timeAdvanceGrantCallback.getTask();
+        this.executor.submit(task);
+
         try {
             rtiAmbassador.timeAdvanceRequest(nextLogicalTime);
-        } catch (LogicalTimeAlreadyPassed | InvalidLogicalTime | InTimeAdvancingState e) {
-            throw new RuntimeException(e);
-        }  catch (RequestForTimeRegulationPending | RequestForTimeConstrainedPending e) {
-            throw new RuntimeException(e);
-        }  catch (SaveInProgress e) {
-            throw new RuntimeException(e);
-        } catch (RestoreInProgress | FederateNotExecutionMember | NotConnected | RTIinternalError e) {
-            throw new RuntimeException(e);
+        } catch (LogicalTimeAlreadyPassed | InvalidLogicalTime e) {
+            throw new RuntimeException("Federate time is completely out of sync with the federation execution time.", e);
+        } catch (InTimeAdvancingState | RequestForTimeRegulationPending | RequestForTimeConstrainedPending e) {
+            logger.warn("Unsuccessful attempt to advance federate time.", e);
         }
+
+        return task;
     }
 
-    // TODO
     public void completeTimeAdvanceGrantCallback(HLAinteger64Time grantedTime) {
-
+        if (this.timeAdvanceGrantCallback != null) {
+            this.timeAdvanceGrantCallback.complete(grantedTime);
+            this.timeAdvanceGrantCallback = null;
+        }
     }
 }
