@@ -2,7 +2,6 @@ package org.see.skf.core;
 
 import hla.rti1516_2025.exceptions.*;
 import org.see.skf.runtime.models.PhysicalEntity;
-import org.see.skf.runtime.models.ReferenceFrame;
 import org.see.skf.runtime.models.Vector3;
 
 import java.io.File;
@@ -13,7 +12,6 @@ public class TestSEEFederate extends SEEFederate {
     private static final File confFile = new File("src/test/resources/confs/valid.conf");
 
     private PhysicalEntity spaceport;
-    private ReferenceFrame referenceFrame;
 
     protected TestSEEFederate(File configurationFile, String... requiredObjects) {
         super(configurationFile, requiredObjects);
@@ -65,13 +63,8 @@ public class TestSEEFederate extends SEEFederate {
             this.spaceport.setAcceleration(new Vector3(accel.getX() + 1.0, accel.getY() + 1.0, accel.getZ() + 1.0));
             updateObjectInstance(spaceport, "acceleration");
         } catch (Exception e) {
-            // throw new RuntimeException(e);
+            e.printStackTrace();
         }
-    }
-
-    @Override
-    public void processFreezeJobs() {
-
     }
 
     @Override

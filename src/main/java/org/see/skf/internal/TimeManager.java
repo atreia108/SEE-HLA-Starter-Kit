@@ -99,6 +99,7 @@ public final class TimeManager {
             throw new IllegalStateException("Cannot send time advance request to RTI as no valid time factory has been internally set.");
         }
 
+        /*
         if (!this.isTimeAdvancing.get()) {
             try {
                 this.isTimeAdvancing.set(true);
@@ -112,17 +113,31 @@ public final class TimeManager {
 
             this.isTimeAdvancing.set(false);
         }
+         */
+
+        if (!this.isTimeAdvancing.get()) {
+            try {
+                HLAinteger64Time newLogicalTime = this.logicalTime.add(this.logicalTimeInterval);
+                dispatchTimeAdvanceRequest(newLogicalTime);
+
+                advanceAllTimelines(this.logicalTime);
+            } catch (IllegalTimeArithmetic e) {
+                throw new RuntimeException("Could not advance time to <" + this.logicalTime.getValue() + ">.", e);
+            }
+        }
     }
 
     private void dispatchTimeAdvanceRequest(HLAinteger64Time targetLogicalTime) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         Future<HLAinteger64Time> task = this.callbackManager.invokeTimeAdvanceGrantCallback(targetLogicalTime);
 
+        this.isTimeAdvancing.set(true);
         try {
-            task.get();
+            this.logicalTime = task.get();
         } catch (InterruptedException | ExecutionException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Federate failed to advance logical time to <" + targetLogicalTime.getValue() + ">.", e);
         }
+        this.isTimeAdvancing.set(false);
     }
 
     private void advanceAllTimelines(HLAinteger64Time newLogicalTime) {
@@ -144,10 +159,10 @@ public final class TimeManager {
             long galtValue = galt.getValue();
 
             long logicalTimeBoundaryValue = computeLogicalTimeBoundary(leastCommonTimeStep, galtValue);
-            this.logicalTime = this.timeFactory.makeTime(logicalTimeBoundaryValue);
+            HLAinteger64Time logicalTimeBoundary = this.timeFactory.makeTime(logicalTimeBoundaryValue);
 
-            this.simulationScenarioTimeEpoch = computeSimulationScenarioTime(this.federationScenarioTimeEpoch, this.logicalTime);
-            dispatchTimeAdvanceRequest(this.logicalTime);
+            this.simulationScenarioTimeEpoch = computeSimulationScenarioTime(this.federationScenarioTimeEpoch, logicalTimeBoundary);
+            dispatchTimeAdvanceRequest(logicalTimeBoundary);
         }
     }
 
@@ -165,6 +180,10 @@ public final class TimeManager {
 
     public void setFederationScenarioTimeEpoch(double federationScenarioTimeEpoch) {
         this.federationScenarioTimeEpoch = federationScenarioTimeEpoch;
+    }
+
+    public double getSimulationScenarioTimeEpoch() {
+        return this.simulationScenarioTimeEpoch;
     }
 
     public void setSimulationScenarioTimeEpoch(double simulationScenarioTimeEpoch) {

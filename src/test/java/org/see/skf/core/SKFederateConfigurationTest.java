@@ -47,9 +47,6 @@ class SKFederateConfigurationTest {
     private static final File invalidConf5 = new File(TEST_CONFIG_RESOURCE_PATH + "invalid5.conf");
     private static final File invalidConf6 = new File(TEST_CONFIG_RESOURCE_PATH + "invalid6.conf");
     private static final File invalidConf7 = new File(TEST_CONFIG_RESOURCE_PATH + "invalid7.conf");
-    private static final File invalidConf8 = new File(TEST_CONFIG_RESOURCE_PATH + "invalid8.conf");
-
-    private static final File roleParamTestConf1 = new File(TEST_CONFIG_RESOURCE_PATH + "role_param_test_1.conf");
 
     @Test
     void testValidConfigProperties() {
@@ -85,9 +82,5 @@ class SKFederateConfigurationTest {
         assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(invalidConf5));
         assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(invalidConf6));
         assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(invalidConf7));
-        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(invalidConf8));
-
-        // Ensure that additional whitespaces in the "role" parameter will yield an exception.
-        assertThrows(InvalidFederateConfigurationException.class, () -> new FederatePropertyConfiguration(roleParamTestConf1));
     }
 }

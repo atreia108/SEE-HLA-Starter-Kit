@@ -2,8 +2,9 @@ package org.see.skf.internal.runtime;
 
 import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.*;
+import org.see.skf.core.ObjectInstanceDestroyedListener;
+import org.see.skf.core.ObjectInstanceDiscoveredListener;
 import org.see.skf.internal.HLAUtilityFactory;
-import org.see.skf.core.ObjectInstanceListener;
 import org.see.skf.internal.callbacks.HLACallbackManager;
 import org.see.skf.internal.callbacks.NameReservationException;
 import org.slf4j.Logger;
@@ -28,7 +29,8 @@ public final class HLAObjectManager {
 
     private final Set<HLAObjectClass> objectClasses;
     private final Set<HLAObjectInstance> objectInstances;
-    private final Set<ObjectInstanceListener> objectInstanceListeners;
+    private final Set<ObjectInstanceDiscoveredListener> objectInstanceDiscoveredListeners;
+    private final Set<ObjectInstanceDestroyedListener> objectInstanceDestroyedListeners;
 
     private HLAObjectManager(Builder builder) {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
@@ -39,7 +41,8 @@ public final class HLAObjectManager {
 
         this.objectInstances = new CopyOnWriteArraySet<>();
         this.objectClasses = new CopyOnWriteArraySet<>();
-        this.objectInstanceListeners = new CopyOnWriteArraySet<>();
+        this.objectInstanceDiscoveredListeners = new CopyOnWriteArraySet<>();
+        this.objectInstanceDestroyedListeners = new CopyOnWriteArraySet<>();
     }
 
     private HLAObjectClass createHLAObjectClass(String name) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
@@ -226,24 +229,20 @@ public final class HLAObjectManager {
     }
 
     public void remoteObjectInstanceDiscovered(ObjectInstanceHandle instanceHandle, String name, ObjectClassHandle classHandle) {
-        Runnable r = () -> {
-            HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getHandle().equals(classHandle));
+        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getHandle().equals(classHandle));
 
-            if (objectClass != null) {
-                HLAObjectInstance objectInstance = new HLAObjectInstance.Builder()
-                        .withName(name)
-                        .withHandle(instanceHandle)
-                        .withObjectClass(objectClass)
-                        .build();
+        if (objectClass != null) {
+            HLAObjectInstance objectInstance = new HLAObjectInstance.Builder()
+                    .withName(name)
+                    .withHandle(instanceHandle)
+                    .withObjectClass(objectClass)
+                    .build();
 
-                this.objectInstances.add(objectInstance);
-                logger.debug("Discovered the object instance <{}>.", name);
+            this.objectInstances.add(objectInstance);
+            logger.debug("Discovered the object instance <{}>.", name);
 
-                this.objectInstanceListeners.forEach(listener -> listener.added(name));
-            }
-        };
-
-        this.executor.submit(r);
+            this.objectInstanceDiscoveredListeners.forEach(listener -> listener.discovered(name));
+        }
     }
 
     public void remoteObjectInstanceUpdateReceived(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues) {
@@ -282,9 +281,16 @@ public final class HLAObjectManager {
         }
     }
 
-    // TODO
-    public void remoteObjectInstanceDeleted() {
+    public void remoteObjectInstanceDestroyed(ObjectInstanceHandle instanceHandle) {
+        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getHandle().equals(instanceHandle));
 
+        if (objectInstance != null) {
+            this.objectInstances.remove(objectInstance);
+
+            String name = objectInstance.getName();
+            this.objectInstanceDestroyedListeners.forEach(listener -> listener.destroyed(name));
+            logger.info("The object instance <{}> was destroyed.", name);
+        }
     }
 
     public <T> Future<T> launchRemoteObjectInstanceQuery(T object, String name) {
@@ -328,16 +334,36 @@ public final class HLAObjectManager {
         }
     }
 
-    public void addObjectInstanceListener(ObjectInstanceListener objectInstanceListener) {
-        if (objectInstanceListener != null) {
-            this.objectInstanceListeners.add(objectInstanceListener);
+    public void addObjectInstanceDiscoveredListener(ObjectInstanceDiscoveredListener listener) {
+        if (listener == null) {
+            return;
         }
+
+        this.objectInstanceDiscoveredListeners.add(listener);
     }
 
-    public void removeObjectInstanceListener(ObjectInstanceListener objectInstanceListener) {
-        if (objectInstanceListener != null) {
-            this.objectInstanceListeners.remove(objectInstanceListener);
+    public void removeObjectInstanceDiscoveredListener(ObjectInstanceDiscoveredListener listener) {
+        if (listener == null) {
+            return;
         }
+
+        this.objectInstanceDiscoveredListeners.remove(listener);
+    }
+
+    public void addObjectInstanceDestroyedListener(ObjectInstanceDestroyedListener listener) {
+        if (listener == null) {
+            return;
+        }
+
+        this.objectInstanceDestroyedListeners.add(listener);
+    }
+
+    public void removeObjectInstanceDestroyedListener(ObjectInstanceDestroyedListener listener) {
+        if (listener == null) {
+            return;
+        }
+
+        this.objectInstanceDestroyedListeners.remove(listener);
     }
 
     public void addPropertyChangeListener(Object object, String propertyName, PropertyChangeListener listener) {

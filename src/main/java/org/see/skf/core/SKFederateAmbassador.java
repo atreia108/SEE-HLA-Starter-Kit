@@ -31,6 +31,7 @@ import hla.rti1516_2025.exceptions.FederateInternalError;
 import hla.rti1516_2025.time.HLAinteger64Time;
 import hla.rti1516_2025.time.LogicalTime;
 import org.see.skf.internal.FederateMapping;
+import org.see.skf.internal.SyncPointManager;
 import org.see.skf.internal.runtime.HLAObjectManager;
 import org.see.skf.internal.callbacks.HLACallbackManager;
 
@@ -41,12 +42,14 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
     private final FederateMapping federateMapping;
     private final HLACallbackManager callbackManager;
     private final HLAObjectManager objectManager;
+    private final SyncPointManager syncPointManager;
     private final ExecutorService executor;
 
     private SKFederateAmbassador(Builder builder) {
         this.executor = builder.executor;
         this.callbackManager = builder.callbackManager;
         this.objectManager = builder.objectManager;
+        this.syncPointManager = builder.syncPointManager;
         this.federateMapping = builder.federateMapping;
     }
 
@@ -56,6 +59,16 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
             this.objectManager.remoteObjectInstanceDiscovered(objectInstance, objectInstanceName, objectClass);
             this.federateMapping.add(producingFederate);
         });
+    }
+
+    @Override
+    public void removeObjectInstance(ObjectInstanceHandle objectInstance, byte[] userSuppliedTag, FederateHandle producingFederate) throws FederateInternalError {
+        this.executor.submit(() -> this.objectManager.remoteObjectInstanceDestroyed(objectInstance));
+    }
+
+    @Override
+    public void removeObjectInstance(ObjectInstanceHandle objectInstance, byte[] userSuppliedTag, FederateHandle producingFederate, LogicalTime<?, ?> time, OrderType sentOrderType, OrderType receivedOrderType, MessageRetractionHandle optionalRetraction) throws FederateInternalError {
+        this.executor.submit(() -> this.objectManager.remoteObjectInstanceDestroyed(objectInstance));
     }
 
     @Override
@@ -70,11 +83,9 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
     private void reflectAttributeValueCallback(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues) {
         // A callback may have elicited this update, or it's just a casual instance attribute update callback from the RTI. Either way, the write operation should not be repeated twice for the object instance.
-        this.executor.submit(() -> {
-            if (!this.callbackManager.completeReflectAttributeValueCallback(instanceHandle, attributeValues)) {
-                this.objectManager.remoteObjectInstanceUpdateReceived(instanceHandle, attributeValues);
-            }
-        });
+        if (!this.callbackManager.completeReflectAttributeValueCallback(instanceHandle, attributeValues)) {
+            this.objectManager.remoteObjectInstanceUpdateReceived(instanceHandle, attributeValues);
+        }
     }
 
     // TODO
@@ -118,6 +129,16 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
         this.executor.submit(() -> this.callbackManager.completeTimeAdvanceGrantCallback((HLAinteger64Time) time));
     }
 
+    @Override
+    public void announceSynchronizationPoint(String synchronizationPointLabel, byte[] userSuppliedTag) throws FederateInternalError {
+        this.executor.submit(() -> this.syncPointManager.syncPointAnnounced(synchronizationPointLabel));
+    }
+
+    @Override
+    public void federationSynchronized(String synchronizationPointLabel, FederateHandleSet failedToSyncSet) throws FederateInternalError {
+        this.executor.submit(() -> this.syncPointManager.federationSynchronized(synchronizationPointLabel));
+    }
+
     static final class Builder {
 
         private ExecutorService executor;
@@ -125,6 +146,8 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
         private HLACallbackManager callbackManager;
 
         private HLAObjectManager objectManager;
+
+        private SyncPointManager syncPointManager;
 
         private FederateMapping federateMapping;
 
@@ -143,13 +166,18 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
             return this;
         }
 
+        Builder syncPointManager(SyncPointManager syncPointManager) {
+            this.syncPointManager = syncPointManager;
+            return this;
+        }
+
         Builder federateMapping(FederateMapping federateMapping) {
             this.federateMapping = federateMapping;
             return this;
         }
 
         SKFederateAmbassador build() {
-            if (this.callbackManager == null || this.objectManager == null || this.federateMapping == null || this.executor == null) {
+            if (this.callbackManager == null || this.objectManager == null || this.federateMapping == null || this.executor == null || this.syncPointManager == null) {
                 throw new IllegalStateException("One or more objects required for initializing SKFederateAmbassador are missing.");
             }
 

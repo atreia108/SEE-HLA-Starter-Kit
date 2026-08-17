@@ -61,6 +61,7 @@ public abstract class SKFederateBase implements SKFederate {
     private final ExecutiveStateManager executiveStateManager;
     private final HLAObjectManager objectManager;
     private final HLAInteractionManager interactionManager;
+    private final SyncPointManager syncPointManager;
     private final TimeManager timeManager;
 
     private ExecutionConfiguration exCO;
@@ -90,11 +91,13 @@ public abstract class SKFederateBase implements SKFederate {
                 .build();
 
         this.interactionManager = new HLAInteractionManager(parser, this.executor);
+        this.syncPointManager = new SyncPointManager();
 
         this.federateAmbassador = new SKFederateAmbassador.Builder()
                 .executor(this.executor)
                 .callbackManager(callbackManager)
                 .objectManager(this.objectManager)
+                .syncPointManager(this.syncPointManager)
                 .federateMapping(federateMapping)
                 .build();
 
@@ -166,6 +169,7 @@ public abstract class SKFederateBase implements SKFederate {
 
     @Override
     public final void shutdownExecution() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+
         try {
             rtiAmbassador.disableTimeRegulation();
             rtiAmbassador.disableTimeConstrained();
@@ -179,6 +183,7 @@ public abstract class SKFederateBase implements SKFederate {
         }
 
         this.executor.shutdown();
+        logger.info("Federate terminated.");
     }
 
     @Override
@@ -244,13 +249,23 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
-    public final void addObjectInstanceListener(ObjectInstanceListener listener) {
-        this.objectManager.addObjectInstanceListener(listener);
+    public void addObjectInstanceDiscoveredListener(ObjectInstanceDiscoveredListener listener) {
+        this.objectManager.addObjectInstanceDiscoveredListener(listener);
     }
 
     @Override
-    public final void removeObjectInstanceListener(ObjectInstanceListener listener) {
-        this.objectManager.removeObjectInstanceListener(listener);
+    public void removeObjectInstanceDiscoveredListener(ObjectInstanceDiscoveredListener listener) {
+        this.objectManager.removeObjectInstanceDiscoveredListener(listener);
+    }
+
+    @Override
+    public void addObjectInstanceDestroyedListener(ObjectInstanceDestroyedListener listener) {
+        this.objectManager.addObjectInstanceDestroyedListener(listener);
+    }
+
+    @Override
+    public void removeObjectInstanceDestroyedListener(ObjectInstanceDestroyedListener listener) {
+        this.objectManager.removeObjectInstanceDestroyedListener(listener);
     }
 
     @Override
@@ -281,6 +296,36 @@ public abstract class SKFederateBase implements SKFederate {
     @Override
     public final void removeInteractionListener(InteractionListener listener) {
         this.interactionManager.removeInteractionListener(listener);
+    }
+
+    @Override
+    public final void achieveSynchronizationPoint(String label) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        this.syncPointManager.achieveSyncPoint(label);
+    }
+
+    @Override
+    public final void achieveSynchronizationPoint(String label, boolean success) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        this.syncPointManager.achieveSyncPoint(label, success);
+    }
+
+    @Override
+    public void addSyncPointAnnouncementListener(SyncPointAnnouncementListener listener) {
+        this.syncPointManager.addSyncPointAnnouncementListener(listener);
+    }
+
+    @Override
+    public void removeSyncPointAnnouncementListener(SyncPointAnnouncementListener listener) {
+        this.syncPointManager.removeSyncPointAnnouncementListener(listener);
+    }
+
+    @Override
+    public void addFederationSynchronizedSyncPointListener(FederationSynchronizedListener listener) {
+        this.syncPointManager.addFederationSynchronizedSyncPointListener(listener);
+    }
+
+    @Override
+    public void removeFederationSynchronizedSyncPointListener(FederationSynchronizedListener listener) {
+        this.syncPointManager.removeFederationSynchronizedSyncPointListener(listener);
     }
 
     @Override
@@ -317,26 +362,35 @@ public abstract class SKFederateBase implements SKFederate {
             throw new ExCONotInitializedException("Cannot proceed with initialization due to failure in acquiring the ExCO object instance.", e);
         }
 
-        addPropertyChangeListener(this.exCO, new ShutdownListener(this.executiveStateManager));
+        addPropertyChangeListener(this.exCO, new ExCOUpdateListener(this.executiveStateManager));
+
+        addObjectInstanceDestroyedListener(instanceName -> {
+                if (instanceName.equals("ExCO")) {
+                    this.executiveStateManager.changeExecutionMode(ExecutionMode.EXEC_MODE_SHUTDOWN);
+                }
+        });
     }
 
     protected final void setupTimeManagement() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         receiveExCOUpdates();
 
-        this.timeManager.constrainTime();
-        this.timeManager.regulateTime();
-
         double federationScenarioTimeEpoch = this.exCO.getScenarioTimeEpoch();
         this.timeManager.setFederationScenarioTimeEpoch(federationScenarioTimeEpoch);
 
         if (this.federateRole == Role.LATE) {
-            this.timeManager.advanceToLogicalTimeBoundary(this.exCO.getLeastCommonTimeStep());
+            lateJoinerTimeSetup();
         } else {
-            earlyJoinerTimeSetupSequence();
+            earlyJoinerTimeSetup();
         }
     }
 
-    private void earlyJoinerTimeSetupSequence() {
+    private void lateJoinerTimeSetup() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        this.timeManager.constrainTime();
+        this.timeManager.regulateTime();
+        this.timeManager.advanceToLogicalTimeBoundary(this.exCO.getLeastCommonTimeStep());
+    }
+
+    private void earlyJoinerTimeSetup() {
         // TODO - Early joiner initialization sequence to be added at a later date.
     }
 
@@ -345,8 +399,6 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     public abstract void processRunJobs();
-
-    public abstract void processFreezeJobs();
 
     public abstract void processShutdownJobs();
 }

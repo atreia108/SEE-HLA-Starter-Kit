@@ -1,17 +1,16 @@
 package org.see.skf.internal;
 
-import org.see.skf.core.ExecutionConfiguration;
 import org.see.skf.core.ExecutionMode;
 import org.see.skf.internal.executive.ExecutiveStateManager;
 
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
-public final class ShutdownListener implements PropertyChangeListener {
+public final class ExCOUpdateListener implements PropertyChangeListener {
 
     private final ExecutiveStateManager executiveStateManager;
 
-    public ShutdownListener(ExecutiveStateManager executiveStateManager) {
+    public ExCOUpdateListener(ExecutiveStateManager executiveStateManager) {
         this.executiveStateManager = executiveStateManager;
     }
 

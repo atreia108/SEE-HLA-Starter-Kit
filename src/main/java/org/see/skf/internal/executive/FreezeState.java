@@ -4,7 +4,7 @@ import org.see.skf.core.ExecutionMode;
 import org.see.skf.core.SKFederateBase;
 import org.see.skf.internal.TimeManager;
 
-public final class FreezeState implements ExecutiveState {
+public final class FreezeState implements SRFOMTransitiveState {
 
     private final SKFederateBase federate;
     private final TimeManager timeManager;
@@ -15,17 +15,7 @@ public final class FreezeState implements ExecutiveState {
     }
 
     @Override
-    public void update() {
+    public void transition(ExecutionMode nextExecutionMode) {
 
-    }
-
-    @Override
-    public void transition(ExecutionMode executionMode) {
-
-    }
-
-    @Override
-    public ExecutionMode getExecutionMode() {
-        return ExecutionMode.EXEC_MODE_FREEZE;
     }
 }

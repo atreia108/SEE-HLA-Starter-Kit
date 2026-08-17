@@ -29,9 +29,13 @@ public interface SKFederate {
 
     Object queryRemoteObjectInstance(String name);
 
-    void addObjectInstanceListener(ObjectInstanceListener listener);
+    void addObjectInstanceDiscoveredListener(ObjectInstanceDiscoveredListener listener);
 
-    void removeObjectInstanceListener(ObjectInstanceListener listener);
+    void removeObjectInstanceDiscoveredListener(ObjectInstanceDiscoveredListener listener);
+
+    void addObjectInstanceDestroyedListener(ObjectInstanceDestroyedListener listener);
+
+    void removeObjectInstanceDestroyedListener(ObjectInstanceDestroyedListener listener);
 
     void addPropertyChangeListener(Object objectInstance, PropertyChangeListener listener);
 
@@ -44,6 +48,18 @@ public interface SKFederate {
     void addInteractionListener(InteractionListener listener);
 
     void removeInteractionListener(InteractionListener listener);
+
+    void achieveSynchronizationPoint(String label) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
+
+    void achieveSynchronizationPoint(String label, boolean success) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
+
+    void addSyncPointAnnouncementListener(SyncPointAnnouncementListener listener);
+
+    void removeSyncPointAnnouncementListener(SyncPointAnnouncementListener listener);
+
+    void addFederationSynchronizedSyncPointListener(FederationSynchronizedListener listener);
+
+    void removeFederationSynchronizedSyncPointListener(FederationSynchronizedListener listener);
 
     double getSimulationTime();
 

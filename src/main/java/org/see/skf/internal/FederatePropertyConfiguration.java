@@ -50,13 +50,15 @@ public final class FederatePropertyConfiguration implements SKFederateConfigurat
     private static final String FEDERATE_ROLE_PROPERTY = "federateRole";
     private static final String MAX_THREADS = "maxThreads";
 
+    private static final int DEFAULT_MAX_THREADS = 32;
+
     private final String rtiAddress;
     private final String federationName;
     private final String federateName;
     private final String federateType;
     private final SKFederate.Role federateRole;
-    private long lookahead;
-    private int maxThreads;
+    private final long lookahead;
+    private final int maxThreads;
 
     private final String[] additionalFomModules;
 
@@ -84,21 +86,8 @@ public final class FederatePropertyConfiguration implements SKFederateConfigurat
         String maxThreadsValue = configProperties.getProperty(MAX_THREADS);
         // Method return can potentially cause overflow, BUT an untenable high amount of threads in the 64-bit integer
         // range is not the best way to run things in the first place, so it should be fine.
-        this.maxThreads = (int) getIntegerParameterValue(maxThreadsValue);
-
-        boolean blameMaxThreadsParam = false;
-        try {
-            this.lookahead = Long.parseLong(configProperties.getProperty(LOOKAHEAD_PROPERTY));
-            blameMaxThreadsParam = true;
-            this.maxThreads = Integer.parseInt(configProperties.getProperty(MAX_THREADS));
-        } catch (NumberFormatException e) {
-            if (!blameMaxThreadsParam) {
-                throw new InvalidFederateConfigurationException("Invalid value for <lookahead> property.", e);
-            } else {
-                this.maxThreads = 32;
-                logger.warn("Missing or invalid value for <maxThreads> parameter. Assuming framework-default of 32 maximum threads for use by federate.");
-            }
-        }
+        this.maxThreads = maxThreadsValue != null ? (int) getIntegerParameterValue(maxThreadsValue) : DEFAULT_MAX_THREADS;
+        logger.debug("Using {} threads for managing federate callbacks.", this.maxThreads);
 
         String fomDir = configProperties.getProperty(FOM_DIRECTORY_PROPERTY);
         this.additionalFomModules = loadFomModules(fomDir);

@@ -1,11 +1,17 @@
 package org.see.skf.internal.executive;
 
 import hla.rti1516_2025.exceptions.*;
-import org.see.skf.core.ExecutionMode;
-import org.see.skf.core.SKFederateBase;
+import org.see.skf.core.*;
+import org.see.skf.internal.SRFOMSynchronizationPoint;
 import org.see.skf.internal.TimeManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public final class RunState implements ExecutiveState {
+import java.util.concurrent.CountDownLatch;
+
+public final class RunState implements SRFOMTransitiveState {
+
+    private static final Logger logger = LoggerFactory.getLogger(RunState.class);
 
     private final SKFederateBase federate;
     private final TimeManager timeManager;
@@ -16,18 +22,48 @@ public final class RunState implements ExecutiveState {
     }
 
     @Override
-    public void update() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        this.federate.processRunJobs();
-        this.timeManager.advanceTime();
-    }
+    public void transition(ExecutionMode nextExecutionMode) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        if (nextExecutionMode == ExecutionMode.EXEC_MODE_FREEZE) {
+            ExecutionConfiguration exCO = (ExecutionConfiguration) this.federate.queryRemoteObjectInstance("ExCO");
+            double nextModeScenarioTime = exCO.getNextModeScenarioTime();
 
-    @Override
-    public void transition(ExecutionMode executionMode) {
+            double timeToFreeze = nextModeScenarioTime - this.timeManager.getSimulationScenarioTime();
+            while (timeToFreeze > 0.0) {
+                this.federate.processRunJobs();
+                this.timeManager.advanceTime();
 
-    }
+                timeToFreeze -= 1.0;
+            }
 
-    @Override
-    public ExecutionMode getExecutionMode() {
-        return ExecutionMode.EXEC_MODE_RUNNING;
+            CountDownLatch latch = new CountDownLatch(2);
+
+            SyncPointAnnouncementListener announcementListener = label -> {
+                latch.countDown();
+                if (label.equals("mtr_freeze")) {
+                    try {
+                        this.federate.achieveSynchronizationPoint(SRFOMSynchronizationPoint.MTR_FREEZE.getLabel());
+                        logger.debug("Achieved SRFOM <mtr_freeze> sync point.");
+                    } catch (RTIexception e) {
+                        logger.error("Failed to achieve the synchronization point <mtr_freeze>.", e);
+                    }
+                }
+            };
+            this.federate.addSyncPointAnnouncementListener(announcementListener);
+
+            FederationSynchronizedListener federationSynchronizedListener = label -> latch.countDown();
+            this.federate.addFederationSynchronizedSyncPointListener(federationSynchronizedListener);
+
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Federate thread interrupted while waiting for federation synchronization of MTR_FREEZE synchronization point.", e);
+            }
+
+            // Reset the following values for future freeze transitions.
+            exCO.setNextExecutionMode(null);
+            exCO.setNextModeScenarioTime(null);
+            logger.info("Federate is now operating in FREEZE mode.");
+        }
     }
 }

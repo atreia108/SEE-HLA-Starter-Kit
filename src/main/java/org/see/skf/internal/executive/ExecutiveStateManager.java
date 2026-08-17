@@ -9,15 +9,17 @@ import org.see.skf.internal.TimeManager;
 public final class ExecutiveStateManager {
 
     private final SKFederateBase federate;
-    private final ExecutiveState runState;
-    private final ExecutiveState freezeState;
+    private final SRFOMTransitiveState runState;
+    private final SRFOMTransitiveState freezeState;
 
-    private ExecutiveState executiveState;
-    private ExecutionMode localExecutionMode;
-    private ExecutionMode nextExecutionMode;
+    private final TimeManager timeManager;
+
+    private volatile ExecutionMode localExecutionMode;
+    private volatile ExecutionMode nextExecutionMode;
 
     public ExecutiveStateManager(SKFederateBase federate, TimeManager timeManager) {
         this.federate = federate;
+        this.timeManager = timeManager;
         this.runState = new RunState(federate, timeManager);
         this.freezeState = new FreezeState(federate, timeManager);
     }
@@ -34,37 +36,36 @@ public final class ExecutiveStateManager {
 
         this.localExecutionMode = exCO.getCurrentExecutionMode();
         this.nextExecutionMode = exCO.getNextExecutionMode();
-
-        this.executiveState = getExecutiveStateForMode(this.localExecutionMode);
     }
 
     public void run() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         init();
 
-        while (this.localExecutionMode != ExecutionMode.EXEC_MODE_SHUTDOWN && this.executiveState != null) {
-            this.executiveState.update();
 
+        while (this.localExecutionMode != ExecutionMode.EXEC_MODE_SHUTDOWN) {
             if (this.localExecutionMode != this.nextExecutionMode) {
-                this.executiveState.transition(this.nextExecutionMode);
-                this.executiveState = getExecutiveStateForMode(this.nextExecutionMode);
+                SRFOMTransitiveState state = getTransitiveState(this.localExecutionMode);
+                state.transition(this.nextExecutionMode);
 
                 this.localExecutionMode = this.nextExecutionMode;
             }
+
+            if (this.localExecutionMode == ExecutionMode.EXEC_MODE_RUNNING) {
+                runModeUpdate();
+            }
         }
 
-        federate.processShutdownJobs();
-        federate.shutdownExecution();
+        this.federate.processShutdownJobs();
+        this.federate.shutdownExecution();
     }
 
-    private ExecutiveState getExecutiveStateForMode(ExecutionMode executionMode) {
-        switch (executionMode) {
-            case EXEC_MODE_RUNNING:
-                return this.runState;
-            case EXEC_MODE_FREEZE:
-                return this.freezeState;
-            default:
-                return null;
-        }
+    private void runModeUpdate() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        this.federate.processRunJobs();
+        this.timeManager.advanceTime();
+    }
+
+    private SRFOMTransitiveState getTransitiveState(ExecutionMode executionMode) {
+        return executionMode == ExecutionMode.EXEC_MODE_RUNNING ? this.runState : this.freezeState;
     }
 
     public synchronized void changeExecutionMode(ExecutionMode executionMode) {
