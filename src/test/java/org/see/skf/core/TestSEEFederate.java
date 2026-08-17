@@ -44,20 +44,6 @@ public class TestSEEFederate extends SEEFederate {
 
     @Override
     public void processRunJobs() {
-        /*
-        if (referenceFrame == null) {
-            Future<ReferenceFrame> frame = trackRemoteObjectInstance(new ReferenceFrame(), "SeeLunarSouthPoleBaseLocalFixed");
-            new Thread(() -> {
-                try {
-                    this.referenceFrame = frame.get();
-                    System.out.println("Reference Frame [ Name: " + referenceFrame.getName() + ", Parent Name: " + referenceFrame.getParentName() + " ]");
-                } catch (InterruptedException | ExecutionException e) {
-                    throw new RuntimeException(e);
-                }
-            }).start();
-        }
-         */
-
         try {
             Vector3 accel = this.spaceport.getAcceleration();
             this.spaceport.setAcceleration(new Vector3(accel.getX() + 1.0, accel.getY() + 1.0, accel.getZ() + 1.0));

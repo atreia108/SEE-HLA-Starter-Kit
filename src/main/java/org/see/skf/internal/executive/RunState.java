@@ -35,22 +35,13 @@ public final class RunState implements SRFOMTransitiveState {
                 timeToFreeze -= 1.0;
             }
 
+            String freezeModeTransitionLabel = SRFOMSynchronizationPoint.MTR_FREEZE.getLabel();
             CountDownLatch latch = new CountDownLatch(2);
 
-            SyncPointAnnouncementListener announcementListener = label -> {
-                latch.countDown();
-                if (label.equals("mtr_freeze")) {
-                    try {
-                        this.federate.achieveSynchronizationPoint(SRFOMSynchronizationPoint.MTR_FREEZE.getLabel());
-                        logger.debug("Achieved SRFOM <mtr_freeze> sync point.");
-                    } catch (RTIexception e) {
-                        logger.error("Failed to achieve the synchronization point <mtr_freeze>.", e);
-                    }
-                }
-            };
+            SyncPointAnnouncementListener announcementListener = createSyncPointAnnouncementListener(freezeModeTransitionLabel, latch);
             this.federate.addSyncPointAnnouncementListener(announcementListener);
 
-            FederationSynchronizedListener federationSynchronizedListener = label -> latch.countDown();
+            FederationSynchronizedListener federationSynchronizedListener = createFederationSynchronizedListener(freezeModeTransitionLabel, latch);
             this.federate.addFederationSynchronizedSyncPointListener(federationSynchronizedListener);
 
             try {
@@ -63,7 +54,32 @@ public final class RunState implements SRFOMTransitiveState {
             // Reset the following values for future freeze transitions.
             exCO.setNextExecutionMode(null);
             exCO.setNextModeScenarioTime(null);
-            logger.info("Federate is now operating in FREEZE mode.");
+
+            this.federate.removeSyncPointAnnouncementListener(announcementListener);
+            this.federate.removeFederationSynchronizedSyncPointListener(federationSynchronizedListener);
         }
+    }
+
+    private SyncPointAnnouncementListener createSyncPointAnnouncementListener(String label, CountDownLatch latch) {
+        return syncPointLabel -> {
+            if (syncPointLabel.equals(label)) {
+                try {
+                    this.federate.achieveSynchronizationPoint(label);
+                    logger.debug("Achieved SRFOM <{}> sync point.", label);
+
+                    latch.countDown();
+                } catch (RTIexception e) {
+                    logger.error("Failed to achieve the SRFOM synchronization point <{}>.", label, e);
+                }
+            }
+        };
+    }
+
+    private FederationSynchronizedListener createFederationSynchronizedListener(String label, CountDownLatch latch) {
+        return syncPointLabel -> {
+            if (syncPointLabel.equals(label)) {
+                latch.countDown();
+            }
+        };
     }
 }

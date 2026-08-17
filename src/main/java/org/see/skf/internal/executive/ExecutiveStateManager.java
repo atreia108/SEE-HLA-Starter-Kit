@@ -4,9 +4,14 @@ import hla.rti1516_2025.exceptions.*;
 import org.see.skf.core.ExecutionConfiguration;
 import org.see.skf.core.ExecutionMode;
 import org.see.skf.core.SKFederateBase;
+import org.see.skf.internal.SRFOMSynchronizationPoint;
 import org.see.skf.internal.TimeManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class ExecutiveStateManager {
+
+    private static final Logger logger = LoggerFactory.getLogger(ExecutiveStateManager.class);
 
     private final SKFederateBase federate;
     private final SRFOMTransitiveState runState;
@@ -21,7 +26,21 @@ public final class ExecutiveStateManager {
         this.federate = federate;
         this.timeManager = timeManager;
         this.runState = new RunState(federate, timeManager);
-        this.freezeState = new FreezeState(federate, timeManager);
+        this.freezeState = new FreezeState(federate);
+
+        this.federate.addSyncPointAnnouncementListener(syncPointLabel -> {
+            String runModeTransitionLabel = SRFOMSynchronizationPoint.MTR_RUN.getLabel();
+            if (syncPointLabel.equals(runModeTransitionLabel)) {
+                try {
+                    this.federate.achieveSynchronizationPoint(runModeTransitionLabel);
+                    logger.debug("Achieved SRFOM <{}> sync point.", runModeTransitionLabel);
+                } catch (RTIexception e) {
+                    logger.error("Failed to achieve the SRFOM synchronization point <{}>.", runModeTransitionLabel, e);
+                }
+
+                changeExecutionMode(ExecutionMode.EXEC_MODE_RUNNING);
+            }
+        });
     }
 
     private void init() {
@@ -48,6 +67,8 @@ public final class ExecutiveStateManager {
                 state.transition(this.nextExecutionMode);
 
                 this.localExecutionMode = this.nextExecutionMode;
+
+                logger.info("Federate now operating in the mode: {}.", this.localExecutionMode);
             }
 
             if (this.localExecutionMode == ExecutionMode.EXEC_MODE_RUNNING) {
