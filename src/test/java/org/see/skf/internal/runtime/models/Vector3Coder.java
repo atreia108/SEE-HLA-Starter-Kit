@@ -1,4 +1,4 @@
-package org.see.skf.runtime.models;
+package org.see.skf.internal.runtime.models;
 
 import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;

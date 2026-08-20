@@ -24,12 +24,12 @@ public final class SKAnnotatedTypeParser {
         this.coderManager = coderManager;
     }
 
-    public ParsedStructure parseObjectInstance(Object parseableObject) {
+    public ParsedObjectMetadata parseObjectInstance(Object parseableObject) {
         isNull(parseableObject);
         return buildObjectInstanceStructure(parseableObject);
     }
 
-    public ParsedStructure parseInteraction(Object parseableObject) {
+    public ParsedObjectMetadata parseInteraction(Object parseableObject) {
         isNull(parseableObject);
         return buildInteractionStructure(parseableObject);
     }
@@ -40,11 +40,11 @@ public final class SKAnnotatedTypeParser {
         }
     }
 
-    private ParsedStructure buildObjectInstanceStructure(Object parseableObject){
+    private ParsedObjectMetadata buildObjectInstanceStructure(Object parseableObject){
         Class<?> clazz = parseableObject.getClass();
         ObjectClass annotation = isObjectClass(clazz);
         String objectClassName = annotation.name();
-        ParsedStructure objectClassStructure = new ParsedStructure(parseableObject, objectClassName);
+        ParsedObjectMetadata objectClassStructure = new ParsedObjectMetadata(parseableObject, objectClassName);
 
         while (clazz != Object.class && clazz.isAnnotationPresent(ObjectClass.class)) {
             evalMultiAnnotation(clazz);
@@ -58,7 +58,7 @@ public final class SKAnnotatedTypeParser {
                             .withName(attribute.name())
                             .withCoder(attribute.coder());
 
-                    objectClassStructure.add(t);
+                    objectClassStructure.add(t, clazz);
                 }
             }
 
@@ -79,19 +79,19 @@ public final class SKAnnotatedTypeParser {
     }
 
     private void evalMultiAnnotation(Class<?> clazz) {
-        ObjectClass a1 = clazz.getAnnotation(ObjectClass.class);
-        InteractionClass a2 = clazz.getAnnotation(InteractionClass.class);
+        ObjectClass annotationType1 = clazz.getAnnotation(ObjectClass.class);
+        InteractionClass annotationType2 = clazz.getAnnotation(InteractionClass.class);
 
-        if (a1 != null && a2 != null) {
+        if (annotationType1 != null && annotationType2 != null) {
             throw new AnnotationParseException("Confusing attachment of both @ObjectClass and @InteractionClass annotations on <." + clazz + ">.");
         }
     }
 
-    private ParsedStructure buildInteractionStructure(Object parseableObject) {
+    private ParsedObjectMetadata buildInteractionStructure(Object parseableObject) {
         Class<?> clazz = parseableObject.getClass();
         InteractionClass annotation = isInteractionClass(parseableObject.getClass());
         String interactionClassName = annotation.name();
-        ParsedStructure interactionClassStructure = new ParsedStructure(parseableObject, interactionClassName);
+        ParsedObjectMetadata interactionClassStructure = new ParsedObjectMetadata(parseableObject, interactionClassName);
 
         while (clazz != Object.class && clazz.isAnnotationPresent(InteractionClass.class)) {
             evalMultiAnnotation(clazz);
@@ -105,7 +105,7 @@ public final class SKAnnotatedTypeParser {
                             .withName(parameter.name())
                             .withCoder(parameter.coder());
 
-                    interactionClassStructure.add(t);
+                    interactionClassStructure.add(t, clazz);
                 }
             }
 
@@ -125,7 +125,7 @@ public final class SKAnnotatedTypeParser {
         return annotation;
     }
 
-    public final class ParsedStructure {
+    public final class ParsedObjectMetadata {
 
         private final Object targetObject;
 
@@ -135,15 +135,25 @@ public final class SKAnnotatedTypeParser {
         // A trait refers to an attribute if this class is an HLA object class, or a parameter if this is an HLA interaction class.
         private final Set<Trait> traits;
 
-        private ParsedStructure(Object targetObject, String classNameInFom) {
+        private ParsedObjectMetadata(Object targetObject, String classNameInFom) {
             this.targetObject = targetObject;
             this.classNameInFom = classNameInFom;
 
             this.traits = new HashSet<>();
         }
 
-        private void add(Trait trait) {
+        private void add(Trait trait, Class<?> clazz) {
+            String traitName = trait.getName();
+            if (traitExists(traitName)) {
+                throw new AnnotationParseException("<" + clazz + " has a duplication definition of <" + traitName + "> which is already defined by a parent class.");
+            }
+
             this.traits.add(trait);
+        }
+
+        private boolean traitExists(String name) {
+            Trait t = this.traits.stream().filter(trait -> trait.getName().equals(name)).findFirst().orElse(null);
+            return t != null;
         }
 
         public Object getTargetObject() {

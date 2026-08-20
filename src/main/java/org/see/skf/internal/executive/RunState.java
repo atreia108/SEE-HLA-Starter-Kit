@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CountDownLatch;
 
-public final class RunState implements SRFOMTransitiveState {
+public final class RunState implements TransitiveState {
 
     private static final Logger logger = LoggerFactory.getLogger(RunState.class);
 
@@ -22,7 +22,7 @@ public final class RunState implements SRFOMTransitiveState {
     }
 
     @Override
-    public void transition(ExecutionMode nextExecutionMode) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    public void transition(ExecutionMode nextExecutionMode) throws RTIexception {
         if (nextExecutionMode == ExecutionMode.EXEC_MODE_FREEZE) {
             ExecutionConfiguration exCO = (ExecutionConfiguration) this.federate.queryRemoteObjectInstance("ExCO");
             double nextModeScenarioTime = exCO.getNextModeScenarioTime();

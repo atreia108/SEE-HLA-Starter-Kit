@@ -1,17 +1,15 @@
-package org.see.skf.runtime;
+package org.see.skf.internal.runtime;
 
 import org.junit.jupiter.api.Test;
-import org.see.skf.internal.runtime.CoderManager;
 import org.see.skf.core.annotations.Attribute;
 import org.see.skf.core.annotations.InteractionClass;
 import org.see.skf.core.annotations.ObjectClass;
 import org.see.skf.core.annotations.Parameter;
 import org.see.skf.encoding.HLAbooleanCoder;
 import org.see.skf.encoding.HLAunicodeStringCoder;
-import org.see.skf.internal.runtime.SKAnnotatedTypeParser;
-import org.see.skf.runtime.models.DynamicalEntity;
-import org.see.skf.runtime.models.PhysicalEntity;
-import org.see.skf.runtime.models.ReferenceFrame;
+import org.see.skf.internal.runtime.models.DynamicalEntity;
+import org.see.skf.internal.runtime.models.PhysicalEntity;
+import org.see.skf.internal.runtime.models.ReferenceFrame;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -93,9 +91,9 @@ class SKAnnotatedTypeParserTest {
         ReferenceFrame referenceFrame = new ReferenceFrame();
         DynamicalEntity dynamicalEntity = new DynamicalEntity();
 
-        SKAnnotatedTypeParser.ParsedStructure physicalEntityStructure = parser.parseObjectInstance(physicalEntity);
-        SKAnnotatedTypeParser.ParsedStructure dynamicalEntityStructure = parser.parseObjectInstance(dynamicalEntity);
-        SKAnnotatedTypeParser.ParsedStructure referenceFrameStructure = parser.parseObjectInstance(referenceFrame);
+        SKAnnotatedTypeParser.ParsedObjectMetadata physicalEntityStructure = parser.parseObjectInstance(physicalEntity);
+        SKAnnotatedTypeParser.ParsedObjectMetadata dynamicalEntityStructure = parser.parseObjectInstance(dynamicalEntity);
+        SKAnnotatedTypeParser.ParsedObjectMetadata referenceFrameStructure = parser.parseObjectInstance(referenceFrame);
 
         assertEquals("HLAobjectRoot.PhysicalEntity", physicalEntityStructure.getClassNameInFom());
         assertEquals("HLAobjectRoot.PhysicalEntity.DynamicalEntity", dynamicalEntityStructure.getClassNameInFom());
@@ -132,12 +130,12 @@ class SKAnnotatedTypeParserTest {
     @Test
     void testInheritance() {
         AnnotatedObjectClassL3 annotatedEntityL3 = new AnnotatedObjectClassL3();
-        SKAnnotatedTypeParser.ParsedStructure annotatedObjectClassL3Structure = parser.parseObjectInstance(annotatedEntityL3);
+        SKAnnotatedTypeParser.ParsedObjectMetadata annotatedObjectClassL3Structure = parser.parseObjectInstance(annotatedEntityL3);
         assertEquals("HLAobjectRoot.AnnotatedObjectClassL1", annotatedObjectClassL3Structure.getClassNameInFom());
         assertTrue(areAllTraitsPresent(annotatedObjectClassAttributes, annotatedObjectClassL3Structure.getTraits()));
 
         AnnotatedInteractionClassL3 annotatedInteractionClassL3 = new AnnotatedInteractionClassL3();
-        SKAnnotatedTypeParser.ParsedStructure annotatedInteractionClassL3Structure = parser.parseInteraction(annotatedInteractionClassL3);
+        SKAnnotatedTypeParser.ParsedObjectMetadata annotatedInteractionClassL3Structure = parser.parseInteraction(annotatedInteractionClassL3);
         assertEquals("HLAinteractionRoot.AnnotatedInteractionClassL3", annotatedInteractionClassL3Structure.getClassNameInFom());
         assertTrue(areAllTraitsPresent(annotatedInteractionClassAttributes, annotatedInteractionClassL3Structure.getTraits()));
     }

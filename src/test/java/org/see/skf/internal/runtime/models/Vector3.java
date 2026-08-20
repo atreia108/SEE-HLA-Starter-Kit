@@ -1,4 +1,4 @@
-package org.see.skf.runtime.models;
+package org.see.skf.internal.runtime.models;
 
 public class Vector3 {
     private double x;

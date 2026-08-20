@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CountDownLatch;
 
-public final class FreezeState implements SRFOMTransitiveState {
+public final class FreezeState implements TransitiveState {
 
     private static final Logger logger = LoggerFactory.getLogger(FreezeState.class);
 

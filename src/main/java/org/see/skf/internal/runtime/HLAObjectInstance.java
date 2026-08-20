@@ -92,7 +92,7 @@ public final class HLAObjectInstance {
         }
     }
 
-    public void updateAttributes(AttributeHandleValueMap map, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, AttributeNotOwned {
+    void updateAttributes(AttributeHandleValueMap map, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, AttributeNotOwned {
         AttributeHandleValueMap valueMapHandle = serialize(map, attributeNames);
 
         try {
@@ -102,7 +102,7 @@ public final class HLAObjectInstance {
         } catch (AttributeNotDefined e) {
             // The object instance should, in theory, have valid attribute serialization and handle information.
             // Therefore, this exception is highly unlikely to be thrown since the framework performs all the necessary validation during object class/instance creation.
-            throw new ObjectInstanceUpdateException(e);
+            throw new ObjectInstanceUpdateException("One or more undefined attributes exist for this model using the HLA object class <" + this.name + ">.");
         } catch (ObjectInstanceNotKnown ignore) {
             logger.error("Updates not sent for the object instance <{}>. It may have been previously deleted.", this.name);
         }

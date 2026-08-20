@@ -15,9 +15,10 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public final class HLAObjectClass {
+final class HLAObjectClass {
 
-    private final Logger logger = LoggerFactory.getLogger(HLAObjectClass.class);
+    private static final Logger logger = LoggerFactory.getLogger(HLAObjectClass.class);
+    private static final String HLA_PRIVILEGE_TO_DELETE_OBJECT_ATTRIBUTE = "HLAprivilegeToDeleteObject";
 
     private final RTIambassador rtiAmbassador;
 
@@ -26,8 +27,8 @@ public final class HLAObjectClass {
     private final Set<Attribute> attributes;
     private final AttributeHandleSet attributeHandleSet;
 
-    public HLAObjectClass(String name, ObjectClassHandle handle, AttributeHandleSet emptyAttributeHandleSet) {
-        this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
+    HLAObjectClass(String name, ObjectClassHandle handle, AttributeHandleSet emptyAttributeHandleSet) {
+        rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
 
         this.name = name;
         this.handle = handle;
@@ -36,7 +37,7 @@ public final class HLAObjectClass {
         this.attributes = new CopyOnWriteArraySet<>();
     }
 
-    public void publishAttributes(Map<String, AttributeHandle> attributeToHandle) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    void publishAttributes(Map<String, AttributeHandle> attributeToHandle) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         Set<Attribute> publishedAttributes = new HashSet<>(attributeToHandle.size());
 
         for (Map.Entry<String, AttributeHandle> entry : attributeToHandle.entrySet()) {
@@ -56,18 +57,38 @@ public final class HLAObjectClass {
         this.attributeHandleSet.clear();
         publishedAttributes.forEach(attribute -> this.attributeHandleSet.add(attribute.handle));
 
-        String loggableAttributeNames = getNamesInLoggableFormat(attributeToHandle.keySet());
         try {
             rtiAmbassador.publishObjectClassAttributes(this.handle, attributeHandleSet);
         } catch (AttributeNotDefined | ObjectClassNotDefined e) {
-            throw new HLAClassDeclarationException(e);
+            throw new RuntimeException(e);
         }
 
+        if (getAttribute(HLA_PRIVILEGE_TO_DELETE_OBJECT_ATTRIBUTE) == null) {
+            this.attributes.add(createHLAPrivilegeToDeleteObjectAttribute(this.handle));
+        }
+
+        String loggableAttributeNames = getNamesInLoggableFormat(attributeToHandle.keySet());
         logger.info("Published <{}> attributes: {}", this.name, loggableAttributeNames);
     }
 
+    private Attribute createHLAPrivilegeToDeleteObjectAttribute(ObjectClassHandle classHandle) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
+        AttributeHandle attributeHandle = null;
+        try {
+            attributeHandle = rtiAmbassador.getAttributeHandle(classHandle, HLA_PRIVILEGE_TO_DELETE_OBJECT_ATTRIBUTE);
+        } catch (InvalidObjectClassHandle | NameNotFound e) {
+            // In theory, this shouldn't be thrown since, if there is something wrong with the object class handle, an error would've been thrown much earlier.
+            // Additionally, every object class inherits from HLAobjectRoot which has HLAprivilegeToDeleteObject as an attribute, so the RTI shouldn't have the chance to complain.
+            logger.error("The attribute <{}> was not created for the object class <{}>. Attribute ownership operations will not function correctly.", HLA_PRIVILEGE_TO_DELETE_OBJECT_ATTRIBUTE, this.name, e);
+        }
+
+        Attribute privilegeToDeleteObjectAttribute =  new Attribute(HLA_PRIVILEGE_TO_DELETE_OBJECT_ATTRIBUTE, attributeHandle);
+        privilegeToDeleteObjectAttribute.published.set(true);
+
+        return privilegeToDeleteObjectAttribute;
+    }
+
     // TODO
-    public void unpublish(String... attributeNames) {
+    void unpublish(String... attributeNames) {
         for (String attributeName : attributeNames) {
             Attribute attribute = getAttribute(attributeName);
 
@@ -77,9 +98,11 @@ public final class HLAObjectClass {
                 logger.warn("Could not unpublish the attribute <{}> of object class <{}> because it has not been published yet.", attributeName, this.name);
             }
         }
+
+        // TODO - Remember to unpublish the HLAprivilegeToDeleteObject attribute since it's dealt with separately!
     }
 
-    public void subscribeAttributes(Map<String, AttributeHandle> attributeToHandle) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    void subscribeAttributes(Map<String, AttributeHandle> attributeToHandle) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         Set<Attribute> subscribedAttributes = new HashSet<>(attributeToHandle.size());
 
         for (Map.Entry<String, AttributeHandle> entry : attributeToHandle.entrySet()) {
@@ -103,14 +126,14 @@ public final class HLAObjectClass {
         try {
             rtiAmbassador.subscribeObjectClassAttributes(this.handle, attributeHandleSet);
         } catch (AttributeNotDefined | ObjectClassNotDefined e) {
-            throw new HLAClassDeclarationException(e);
+            throw new RuntimeException(e);
         }
 
         logger.info("Subscribed <{}> attributes: {}", this.name, loggableAttributeNames);
     }
 
     // TODO
-    public void unsubscribe(String... attributeNames) {
+    void unsubscribe(String... attributeNames) {
         for (String attributeName : attributeNames) {
             Attribute attribute = getAttribute(attributeName);
 
@@ -140,22 +163,22 @@ public final class HLAObjectClass {
         return sb.toString();
     }
 
-    public String getName() {
+    String getName() {
         return this.name;
     }
 
-    public ObjectClassHandle getHandle() {
+    ObjectClassHandle getHandle() {
         return this.handle;
     }
 
     Attribute getAttribute(String name) {
-        return attributes.stream()
+        return this.attributes.stream()
                 .filter(attribute -> attribute.name.equals(name))
                 .findFirst()
                 .orElse(null);
     }
 
-    public AttributeHandleSet getSubscribedAttributeHandles() {
+    AttributeHandleSet getSubscribedAttributeHandles() {
         this.attributeHandleSet.clear();
 
         this.attributes.forEach(attribute -> {

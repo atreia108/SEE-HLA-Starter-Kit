@@ -90,13 +90,15 @@ public abstract class SKFederateBase implements SKFederate {
                 .executor(this.executor)
                 .build();
 
-        this.interactionManager = new HLAInteractionManager(parser, this.executor);
+        SKAnnotatedTypeParser2 parser2 = new SKAnnotatedTypeParser2(coderManager);
+        this.interactionManager = new HLAInteractionManager(parser2);
         this.syncPointManager = new SyncPointManager();
 
         this.federateAmbassador = new SKFederateAmbassador.Builder()
                 .executor(this.executor)
                 .callbackManager(callbackManager)
                 .objectManager(this.objectManager)
+                .interactionManager(this.interactionManager)
                 .syncPointManager(this.syncPointManager)
                 .federateMapping(federateMapping)
                 .build();
@@ -188,10 +190,6 @@ public abstract class SKFederateBase implements SKFederate {
 
     @Override
     public final void publishObjectClass(String className, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
-        if (attributeNames.length < 1) {
-            throw new IllegalArgumentException("At least one attribute is required to publish the object class <" + className + ">.");
-        }
-
         this.objectManager.publishObjectClass(className, attributeNames);
     }
 
@@ -202,10 +200,6 @@ public abstract class SKFederateBase implements SKFederate {
 
     @Override
     public final void subscribeObjectClass(String className, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
-        if (attributeNames.length < 1) {
-            throw new IllegalArgumentException("At least one attribute is required to subscribe the object class <" + className + ">.");
-        }
-
         this.objectManager.subscribeObjectClass(className, attributeNames);
     }
 
@@ -226,10 +220,6 @@ public abstract class SKFederateBase implements SKFederate {
 
     @Override
     public final void updateObjectInstance(Object objectInstance, String... attributes) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
-        if (attributes.length < 1) {
-            throw new IllegalArgumentException("At least one attribute is required to update an object instance.");
-        }
-
         this.objectManager.updateAttributeValues(objectInstance, attributes);
     }
 
@@ -286,6 +276,31 @@ public abstract class SKFederateBase implements SKFederate {
     @Override
     public final void removePropertyChangeListener(Object objectInstance, PropertyChangeListener listener) {
         this.objectManager.removePropertyChangeListener(objectInstance, null, listener);
+    }
+
+    @Override
+    public final void publishInteractionClass(String name, Class<?> candidateClass) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        this.interactionManager.publishInteractionClass(name, candidateClass);
+    }
+
+    @Override
+    public final void unpublishInteractionClass(String name) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        this.interactionManager.unpublishInteractionClass(name);
+    }
+
+    @Override
+    public final void subscribeInteractionClass(String name, Class<?> candidateClass) throws FederateNotExecutionMember, RestoreInProgress, FederateServiceInvocationsAreBeingReportedViaMOM, NotConnected, RTIinternalError, SaveInProgress {
+        this.interactionManager.subscribeInteractionClass(name, candidateClass);
+    }
+
+    @Override
+    public final void unsubscribeInteractionClass(String name) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        this.interactionManager.unsubscribeInteractionClass(name);
+    }
+
+    @Override
+    public final void sendInteraction(Object interaction) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        this.interactionManager.sendInteraction(interaction);
     }
 
     @Override
@@ -394,11 +409,11 @@ public abstract class SKFederateBase implements SKFederate {
         // TODO - Early joiner initialization sequence to be added at a later date.
     }
 
-    protected final void exec() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    protected final void exec() throws RTIexception {
         this.executiveStateManager.run();
     }
 
-    public abstract void processRunJobs();
+    public abstract void processRunJobs() throws RTIexception;
 
-    public abstract void processShutdownJobs();
+    public abstract void processShutdownJobs() throws RTIexception;
 }

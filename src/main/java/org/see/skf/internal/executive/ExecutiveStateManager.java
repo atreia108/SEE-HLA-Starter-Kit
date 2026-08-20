@@ -14,8 +14,8 @@ public final class ExecutiveStateManager {
     private static final Logger logger = LoggerFactory.getLogger(ExecutiveStateManager.class);
 
     private final SKFederateBase federate;
-    private final SRFOMTransitiveState runState;
-    private final SRFOMTransitiveState freezeState;
+    private final TransitiveState runState;
+    private final TransitiveState freezeState;
 
     private final TimeManager timeManager;
 
@@ -57,13 +57,13 @@ public final class ExecutiveStateManager {
         this.nextExecutionMode = exCO.getNextExecutionMode();
     }
 
-    public void run() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    public void run() throws RTIexception {
         init();
 
 
         while (this.localExecutionMode != ExecutionMode.EXEC_MODE_SHUTDOWN) {
             if (this.localExecutionMode != this.nextExecutionMode) {
-                SRFOMTransitiveState state = getTransitiveState(this.localExecutionMode);
+                TransitiveState state = getTransitiveState(this.localExecutionMode);
                 state.transition(this.nextExecutionMode);
 
                 this.localExecutionMode = this.nextExecutionMode;
@@ -80,12 +80,12 @@ public final class ExecutiveStateManager {
         this.federate.shutdownExecution();
     }
 
-    private void runModeUpdate() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    private void runModeUpdate() throws RTIexception {
         this.federate.processRunJobs();
         this.timeManager.advanceTime();
     }
 
-    private SRFOMTransitiveState getTransitiveState(ExecutionMode executionMode) {
+    private TransitiveState getTransitiveState(ExecutionMode executionMode) {
         return executionMode == ExecutionMode.EXEC_MODE_RUNNING ? this.runState : this.freezeState;
     }
 

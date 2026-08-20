@@ -74,6 +74,10 @@ public final class HLAObjectManager {
     }
 
     public void publishObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
+        if (attributeNames.length < 1) {
+            throw new IllegalArgumentException("At least one attribute is required to publish the object class <" + name + ">.");
+        }
+
         HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(name));
         if (objectClass == null) {
             objectClass = createHLAObjectClass(name);
@@ -90,6 +94,10 @@ public final class HLAObjectManager {
     }
 
     public void subscribeObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
+        if (attributeNames.length < 1) {
+            throw new IllegalArgumentException("At least one attribute is required to subscribe the object class <" + name + ">.");
+        }
+
         HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(name));
         if (objectClass == null) {
             objectClass = createHLAObjectClass(name);
@@ -117,7 +125,7 @@ public final class HLAObjectManager {
             throw new IllegalArgumentException("Cannot create HLA object instance with a NULL object.");
         }
 
-        SKAnnotatedTypeParser.ParsedStructure objectMetadata = this.parser.parseObjectInstance(object);
+        SKAnnotatedTypeParser.ParsedObjectMetadata objectMetadata = this.parser.parseObjectInstance(object);
         String objectClassName = objectMetadata.getClassNameInFom();
         Set<SKAnnotatedTypeParser.Trait> attributes = objectMetadata.getTraits();
 
@@ -157,7 +165,7 @@ public final class HLAObjectManager {
 
         FutureTask<Void> task = new FutureTask<>(() -> {
             if (getObjectInstance(objInstance -> objInstance.getName().equals(name) && objInstance.getInstance() != null) == null) {
-                SKAnnotatedTypeParser.ParsedStructure objectMetadata = this.parser.parseObjectInstance(object);
+                SKAnnotatedTypeParser.ParsedObjectMetadata objectMetadata = this.parser.parseObjectInstance(object);
                 String objectClassName = objectMetadata.getClassNameInFom();
                 Set<SKAnnotatedTypeParser.Trait> attributes = objectMetadata.getTraits();
 
@@ -195,6 +203,10 @@ public final class HLAObjectManager {
     }
 
     public void updateAttributeValues(Object object, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, AttributeNotOwned {
+        if (attributeNames.length < 1) {
+            throw new IllegalArgumentException("At least one attribute is required to update an object instance.");
+        }
+
         HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getInstance() != null && objInstance.getInstance().equals(object));
 
         if (objectInstance == null) {
@@ -228,7 +240,7 @@ public final class HLAObjectManager {
         }
     }
 
-    public void remoteObjectInstanceDiscovered(ObjectInstanceHandle instanceHandle, String name, ObjectClassHandle classHandle) {
+    public void remoteObjectInstanceDiscovered(ObjectInstanceHandle instanceHandle, String name, ObjectClassHandle classHandle, String producingFederateName) {
         HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getHandle().equals(classHandle));
 
         if (objectClass != null) {
@@ -274,7 +286,7 @@ public final class HLAObjectManager {
 
     private void makeObjectInstanceTrackable(HLAObjectInstance objectInstance, Object object) {
         if (objectInstance != null && object != null) {
-            SKAnnotatedTypeParser.ParsedStructure objectMetadata = this.parser.parseObjectInstance(object);
+            SKAnnotatedTypeParser.ParsedObjectMetadata objectMetadata = this.parser.parseObjectInstance(object);
             Set<SKAnnotatedTypeParser.Trait> traits = objectMetadata.getTraits();
 
             objectInstance.makeTrackable(object, traits);

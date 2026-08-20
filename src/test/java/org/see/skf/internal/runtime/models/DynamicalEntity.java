@@ -1,4 +1,4 @@
-package org.see.skf.runtime.models;
+package org.see.skf.internal.runtime.models;
 
 import org.see.skf.core.annotations.Attribute;
 import org.see.skf.core.annotations.ObjectClass;

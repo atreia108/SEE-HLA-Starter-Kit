@@ -3,43 +3,36 @@ package org.see.skf.internal;
 import hla.rti1516_2025.FederateHandle;
 import hla.rti1516_2025.RTIambassador;
 import hla.rti1516_2025.exceptions.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public final class FederateMapping {
+
+    private static final Logger logger = LoggerFactory.getLogger(FederateMapping.class);
+
     private final RTIambassador rtiAmbassador;
 
     private final Map<FederateHandle, String> handleToName;
-    private final Map<String, FederateHandle> nameToHandle;
 
     public FederateMapping() {
-        this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
+        rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
         this.handleToName = new HashMap<>();
-        this.nameToHandle = new HashMap<>();
     }
 
-    public void add(FederateHandle handle) {
-        String federateName = this.handleToName.computeIfAbsent(handle, this::getFederateNameFromRti);
-        this.nameToHandle.put(federateName, handle);
-    }
-
-    private String getFederateNameFromRti(FederateHandle handle) {
-        return this.handleToName.computeIfAbsent(handle, h -> {
+    public String getAndCreateIfAbsent(FederateHandle handle) {
+        this.handleToName.computeIfAbsent(handle, h -> {
             try {
                 return this.rtiAmbassador.getFederateName(handle);
             } catch (InvalidFederateHandle | FederateHandleNotKnown | FederateNotExecutionMember | NotConnected |
                      RTIinternalError e) {
-                throw new RuntimeException("Name of the federate using the handle <" + handle + "> could not be retrieved from the RTI.", e);
+                logger.error("Name of the federate using the handle <{}> could not be retrieved from the RTI.", handle, e);
+                return null;
             }
         });
-    }
 
-    public FederateHandle getHandle(String name) {
-        return this.nameToHandle.get(name);
-    }
-
-    public String getName(FederateHandle handle) {
         return this.handleToName.get(handle);
     }
 }

@@ -102,6 +102,10 @@ public final class FederatePropertyConfiguration implements SKFederateConfigurat
     }
 
     private SKFederate.Role getFederateRoleParameterValue(String roleName) {
+        if (roleName == null) {
+            throw new InvalidFederateConfigurationException("The <federateRole> parameter is missing.");
+        }
+
         if (roleName.equalsIgnoreCase("late")) {
             return SKFederate.Role.LATE;
         } else if (roleName.equalsIgnoreCase("early")) {

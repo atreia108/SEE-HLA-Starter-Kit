@@ -99,22 +99,6 @@ public final class TimeManager {
             throw new IllegalStateException("Cannot send time advance request to RTI as no valid time factory has been internally set.");
         }
 
-        /*
-        if (!this.isTimeAdvancing.get()) {
-            try {
-                this.isTimeAdvancing.set(true);
-
-                this.logicalTime = this.logicalTime.add(this.logicalTimeInterval);
-                advanceAllTimelines(this.logicalTime);
-                dispatchTimeAdvanceRequest(this.logicalTime);
-            } catch (IllegalTimeArithmetic e) {
-                throw new RuntimeException("Could not advance time to <" + this.logicalTime.getValue() + ">.", e);
-            }
-
-            this.isTimeAdvancing.set(false);
-        }
-         */
-
         if (!this.isTimeAdvancing.get()) {
             try {
                 HLAinteger64Time newLogicalTime = this.logicalTime.add(this.logicalTimeInterval);

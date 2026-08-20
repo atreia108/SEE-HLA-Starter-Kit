@@ -45,6 +45,16 @@ public interface SKFederate {
 
     void removePropertyChangeListener(Object objectInstance, PropertyChangeListener listener);
 
+    void publishInteractionClass(String name, Class<?> candidateClass) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
+
+    void unpublishInteractionClass(String name) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
+
+    void subscribeInteractionClass(String name, Class<?> candidateClass) throws FederateNotExecutionMember, RestoreInProgress, FederateServiceInvocationsAreBeingReportedViaMOM, NotConnected, RTIinternalError, SaveInProgress;
+
+    void unsubscribeInteractionClass(String name) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
+
+    void sendInteraction(Object interaction) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
+
     void addInteractionListener(InteractionListener listener);
 
     void removeInteractionListener(InteractionListener listener);
