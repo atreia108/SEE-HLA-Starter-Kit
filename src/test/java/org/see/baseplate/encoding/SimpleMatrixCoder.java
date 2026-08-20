@@ -50,6 +50,8 @@ public class SimpleMatrixCoder implements Coder<SimpleMatrix> {
 
     @Override
     public SimpleMatrix decode(byte[] bytes) throws DecoderException {
+        this.coder.decode(bytes);
+
         SimpleMatrix matrix = new SimpleMatrix(3, 3);
         matrix.set(0, coder.get(0).getValue());
         matrix.set(1, coder.get(1).getValue());

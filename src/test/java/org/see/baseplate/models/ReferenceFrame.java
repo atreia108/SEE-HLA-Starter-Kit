@@ -23,8 +23,8 @@
 
 package org.see.baseplate.models;
 
+import org.see.baseplate.encoding.SpaceTimeCoordinateState;
 import org.see.baseplate.encoding.SpaceTimeCoordinateStateCoder;
-import org.see.baseplate.types.SpaceTimeCoordinateState;
 import org.see.skf.core.annotations.Attribute;
 import org.see.skf.core.annotations.ObjectClass;
 import org.see.skf.encoding.HLAunicodeStringCoder;
