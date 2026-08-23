@@ -3,38 +3,33 @@ package org.see.skf.internal.callbacks;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 
-abstract class AbstractBiCallback<T,U> {
-    private final T target;
-    private U outcome;
-    private final FutureTask<U> task;
+final class IAbstractCallbackImpl<T> implements IAbstractCallback<T> {
+
+    private T outcome;
+    private final FutureTask<T> task;
 
     private final CountDownLatch latch;
 
-    protected AbstractBiCallback(T target, U outcome, int latchCount) {
-        this.target = target;
-        this.outcome = outcome;
+    IAbstractCallbackImpl(int latchCount) {
         this.task = createTask();
-
         this.latch = new CountDownLatch(latchCount);
     }
 
-    protected final FutureTask<U> createTask() {
+    private FutureTask<T> createTask() {
         return new FutureTask<>(() -> {
             this.latch.await();
             return this.outcome;
         });
     }
 
-    public final T getTarget() {
-        return this.target;
-    }
-
-    public final synchronized void complete(U outcome) {
+    @Override
+    public synchronized void complete(T outcome) {
         this.outcome = outcome;
         this.latch.countDown();
     }
 
-    public final FutureTask<U> getTask() {
+    @Override
+    public FutureTask<T> getTask() {
         return this.task;
     }
 }

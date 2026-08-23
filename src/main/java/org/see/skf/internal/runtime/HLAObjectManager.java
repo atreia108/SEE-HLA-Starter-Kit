@@ -1,3 +1,4 @@
+/*
 package org.see.skf.internal.runtime;
 
 import hla.rti1516_2025.*;
@@ -430,3 +431,4 @@ public final class HLAObjectManager {
         }
     }
 }
+ */

@@ -8,6 +8,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public final class RunState implements TransitiveState {
 
@@ -25,6 +28,10 @@ public final class RunState implements TransitiveState {
     public void transition(ExecutionMode nextExecutionMode) throws RTIexception {
         if (nextExecutionMode == ExecutionMode.EXEC_MODE_FREEZE) {
             ExecutionConfiguration exCO = (ExecutionConfiguration) this.federate.queryRemoteObjectInstance("ExCO");
+            if (exCO == null) {
+                throw new ExCONotInitializedException("Cannot perform federate executive state transition as ExCO object instance values could not be retrieved in time.");
+            }
+
             double nextModeScenarioTime = exCO.getNextModeScenarioTime();
 
             double timeToFreeze = nextModeScenarioTime - this.timeManager.getSimulationScenarioTime();

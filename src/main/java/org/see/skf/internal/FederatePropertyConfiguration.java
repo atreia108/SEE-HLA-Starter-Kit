@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,6 +68,8 @@ public final class FederatePropertyConfiguration implements SKFederateConfigurat
 
         try (FileInputStream inputStream = new FileInputStream(confFile)) {
             configProperties.load(inputStream);
+        } catch (FileNotFoundException e) {
+            throw new InvalidFederateConfigurationException("The specified configuration file could not be found.", e);
         } catch (IOException e) {
             throw new InvalidFederateConfigurationException("I/O problems encountered while attempting to read the configuration file.", e);
         }

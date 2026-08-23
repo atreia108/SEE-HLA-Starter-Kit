@@ -30,8 +30,8 @@ public abstract class SEEFederate extends SKFederateBase {
 
     // TODO - Enable MTR support.
     private void declareSRFOMExecutiveClasses() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        subscribeObjectClass("HLAobjectRoot.ExecutionConfiguration", "root_frame_name", "scenario_time_epoch", "current_execution_mode", "next_execution_mode", "next_mode_scenario_time", "next_mode_cte_time", "least_common_time_step");
-        publishInteractionClass("HLAinteractionRoot.ModeTransitionRequest", ModeTransitionRequest.class);
+        subscribeObjectClass(ExecutionConfiguration.class, "root_frame_name", "scenario_time_epoch", "current_execution_mode", "next_execution_mode", "next_mode_scenario_time", "next_mode_cte_time", "least_common_time_step");
+        publishInteractionClass(ModeTransitionRequest.class);
     }
 
     private void waitForRequiredObjects() {

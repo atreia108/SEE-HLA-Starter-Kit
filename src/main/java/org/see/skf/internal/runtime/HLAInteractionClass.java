@@ -22,13 +22,15 @@ final class HLAInteractionClass {
 
     private final RTIambassador rtiAmbassador;
 
-    private final String name;
-
     private final InteractionClassHandle handle;
+
+    private final String name;
 
     private final Class<?> proxyClass;
 
     private final Map<Parameter, Trait> parameterToTrait;
+
+    private final ParameterHandleValueMap parameterValues;
 
     private final AtomicBoolean published;
 
@@ -37,10 +39,11 @@ final class HLAInteractionClass {
     HLAInteractionClass(Builder builder) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
         rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
 
-        this.name = builder.name;
         this.handle = builder.handle;
+        this.name = builder.objectMetadata.getFomClassName();
         this.proxyClass = builder.objectMetadata.getProxyClass();
         this.parameterToTrait = computeParameterToTraitAssociation(builder.objectMetadata.getTraits());
+        this.parameterValues = rtiAmbassador.getParameterHandleValueMapFactory().create(this.parameterToTrait.size());
 
         this.published = new AtomicBoolean(false);
         this.subscribed = new AtomicBoolean(false);
@@ -69,7 +72,6 @@ final class HLAInteractionClass {
 
     void publish() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         if (published.get()) {
-            logger.warn("Redundant attempt to publish the HLA interaction class <{}> that has been previously published already.", this.name);
             return;
         }
 
@@ -86,7 +88,6 @@ final class HLAInteractionClass {
 
     void unpublish() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         if (!published.get()) {
-            logger.warn("Redundant attempt to unpublish to HLA interaction class <{}> that has not been previously published.", this.name);
             return;
         }
 
@@ -102,7 +103,6 @@ final class HLAInteractionClass {
 
     void subscribe() throws FederateNotExecutionMember, RestoreInProgress, FederateServiceInvocationsAreBeingReportedViaMOM, NotConnected, RTIinternalError, SaveInProgress {
         if (subscribed.get()) {
-            logger.warn("Redundant attempt to subscribe to HLA interaction class <{}> that has been previously subscribed already.", this.name);
             return;
         }
 
@@ -118,7 +118,6 @@ final class HLAInteractionClass {
 
     void unsubscribe() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         if (!subscribed.get()) {
-            logger.warn("Redundant attempt to unsubscribe to HLA interaction class <{}> that has not been previously subscribed.", this.name);
             return;
         }
 
@@ -132,9 +131,7 @@ final class HLAInteractionClass {
         this.subscribed.set(false);
     }
 
-    private ParameterHandleValueMap serialize(Object forObject) throws FederateNotExecutionMember, NotConnected {
-        ParameterHandleValueMap map = rtiAmbassador.getParameterHandleValueMapFactory().create(this.parameterToTrait.size());
-
+    private ParameterHandleValueMap serialize(Object forObject, ParameterHandleValueMap map) {
         for (Map.Entry<Parameter, Trait> entry : this.parameterToTrait.entrySet()) {
             Parameter parameter = entry.getKey();
             Trait trait = entry.getValue();
@@ -146,7 +143,7 @@ final class HLAInteractionClass {
     }
 
     void send(Object proxy) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
-        ParameterHandleValueMap map = serialize(proxy);
+        ParameterHandleValueMap map = serialize(proxy, this.parameterValues);
 
         try {
             rtiAmbassador.sendInteraction(this.handle, map, null);
@@ -156,6 +153,8 @@ final class HLAInteractionClass {
         } catch (InteractionParameterNotDefined e) {
             throw new SendInteractionException("One or more undefined parameters exist for this model using the HLA interaction class <" + this.name + ">.");
         }
+
+        this.parameterValues.clear();
     }
 
     Object receive(ParameterHandleValueMap map) {
@@ -196,8 +195,12 @@ final class HLAInteractionClass {
     Object createProxy() {
         try {
             return this.proxyClass.getDeclaredConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            throw new RuntimeException("Could not create object to deserialize incoming interaction data.", e);
+        } catch (InstantiationException e) {
+            throw new RuntimeException("Could not create object to deserialize incoming interaction data for the HLA interaction class <" + this.name + ">.", e);
+        }  catch (IllegalAccessException | NoSuchMethodException e) {
+            throw new RuntimeException("The class " + this.proxyClass + "> assigned to the HLA interaction class <" + this.name  + "> may lack a public constructor that accepts zero arguments.", e);
+        } catch (InvocationTargetException e) {
+            throw new RuntimeException("The constructor for " + this.proxyClass + "threw an exception during instantiation.", e);
         }
     }
 
@@ -221,18 +224,11 @@ final class HLAInteractionClass {
         }
     }
 
-    static class Builder {
-
-        private String name;
+    static final class Builder {
 
         private InteractionClassHandle handle;
 
         private SKAnnotatedTypeParser2.Metadata objectMetadata;
-
-        Builder withName(String name) {
-            this.name = name;
-            return this;
-        }
 
         Builder withHandle(InteractionClassHandle handle) {
             this.handle = handle;
@@ -245,12 +241,8 @@ final class HLAInteractionClass {
         }
 
         HLAInteractionClass build() throws FederateNotExecutionMember, NotConnected, RTIinternalError {
-            if (this.name == null || this.handle == null || this.objectMetadata == null) {
+            if (this.handle == null || this.objectMetadata == null) {
                 throw new InternalObjectBuilderException("Missing one or more arguments required to initialize internal framework object representing an HLA interaction class.");
-            }
-
-            if (!this.name.equals(this.objectMetadata.getFomClassName())) {
-                throw new MetadataMismatchException("Name of the interaction class represented by <" + this.objectMetadata.getFomClassName() + "> does not match the HLA interaction class <" + this.name + "> that it is intended to represent.");
             }
 
             return new HLAInteractionClass(this);

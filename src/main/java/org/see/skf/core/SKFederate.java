@@ -15,9 +15,13 @@ public interface SKFederate {
 
     void shutdownExecution() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
 
-    void publishObjectClass(String className, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress;
+    void publishObjectClass(Class<?> representation, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress;
 
-    void subscribeObjectClass(String className, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress;
+    void unpublishObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, OwnershipAcquisitionPending, NotConnected, RTIinternalError, SaveInProgress;
+
+    void subscribeObjectClass(Class<?> representation, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress;
+
+    void unsubscribeObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
 
     String createObjectInstance(Object objectInstance) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
 
@@ -25,17 +29,13 @@ public interface SKFederate {
 
     void updateObjectInstance(Object objectInstance, String... attributes) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress;
 
-    <T> Future<T> trackRemoteObjectInstance(T object, String name);
-
     Object queryRemoteObjectInstance(String name);
 
-    void addObjectInstanceDiscoveredListener(ObjectInstanceDiscoveredListener listener);
+    void requestRemoteObjectInstanceUpdates(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
 
-    void removeObjectInstanceDiscoveredListener(ObjectInstanceDiscoveredListener listener);
+    void addObjectInstanceListener(ObjectInstanceListener listener);
 
-    void addObjectInstanceDestroyedListener(ObjectInstanceDestroyedListener listener);
-
-    void removeObjectInstanceDestroyedListener(ObjectInstanceDestroyedListener listener);
+    void removeObjectInstanceListener(ObjectInstanceListener listener);
 
     void addPropertyChangeListener(Object objectInstance, PropertyChangeListener listener);
 
@@ -45,11 +45,11 @@ public interface SKFederate {
 
     void removePropertyChangeListener(Object objectInstance, PropertyChangeListener listener);
 
-    void publishInteractionClass(String name, Class<?> candidateClass) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
+    void publishInteractionClass(Class<?> proxyClass) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
 
     void unpublishInteractionClass(String name) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
 
-    void subscribeInteractionClass(String name, Class<?> candidateClass) throws FederateNotExecutionMember, RestoreInProgress, FederateServiceInvocationsAreBeingReportedViaMOM, NotConnected, RTIinternalError, SaveInProgress;
+    void subscribeInteractionClass(Class<?> proxyClass) throws FederateNotExecutionMember, RestoreInProgress, FederateServiceInvocationsAreBeingReportedViaMOM, NotConnected, RTIinternalError, SaveInProgress;
 
     void unsubscribeInteractionClass(String name) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
 

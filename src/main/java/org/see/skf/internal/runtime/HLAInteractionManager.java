@@ -38,13 +38,6 @@ public final class HLAInteractionManager {
                 .orElse(null);
     }
 
-    private HLAInteractionClass getInteractionClass(String name) {
-        return this.interactionClasses.stream()
-                .filter(i -> i.getName().equals(name))
-                .findFirst()
-                .orElse(null);
-    }
-
     private HLAInteractionClass getInteractionClass(Class<?> proxyClass) {
         return this.interactionClasses.stream()
                 .filter(i -> i.getProxyClass().equals(proxyClass))
@@ -52,78 +45,65 @@ public final class HLAInteractionManager {
                 .orElse(null);
     }
 
-    private HLAInteractionClass createInteractionClass(String name, Class<?> proxyClass) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
+    private HLAInteractionClass getInteractionClass(String name) {
+        return this.interactionClasses.stream()
+                .filter(i -> i.getName().equals(name))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private HLAInteractionClass createInteractionClass(Class<?> proxyClass) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
         SKAnnotatedTypeParser2.Metadata proxyMetadata = this.parser.parseInteractionProxy(proxyClass);
+        String className = proxyMetadata.getFomClassName();
 
         InteractionClassHandle handle;
         try {
-            handle = rtiAmbassador.getInteractionClassHandle(name);
+            handle = rtiAmbassador.getInteractionClassHandle(className);
         } catch (NameNotFound e) {
-            throw new IllegalArgumentException("The HLA interaction class <" + name + "> is not defined in any FOMs currently being used in this federation execution.");
+            throw new IllegalArgumentException("The HLA interaction class <" + className + "> is not defined in any FOM modules currently being used in this federation execution.");
         }
 
         return new HLAInteractionClass.Builder()
-                .withName(name)
-                .withMetadata(proxyMetadata)
                 .withHandle(handle)
+                .withMetadata(proxyMetadata)
                 .build();
     }
 
-    public void publishInteractionClass(String name, Class<?> proxyClass) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
-        if (name == null) {
-            throw new IllegalArgumentException("The name of the HLA interaction class to be published must not be null.");
+    public void publishInteractionClass(Class<?> proxyClass) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
+        if (proxyClass == null) {
+            throw new IllegalArgumentException("Class representing how the data of the HLA interaction class should be interpreted by the federate cannot be NULL.");
         }
 
         HLAInteractionClass interactionClass;
-        if ((interactionClass = getInteractionClass(name)) == null) {
-            interactionClass = createInteractionClass(name, proxyClass);
+        if ((interactionClass = getInteractionClass(proxyClass)) == null) {
+            interactionClass = createInteractionClass(proxyClass);
             this.interactionClasses.add(interactionClass);
         }
 
-        proxyClassEqualityCheck(interactionClass.getProxyClass(), proxyClass);
         interactionClass.publish();
     }
 
     public void unpublishInteractionClass(String name) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        if (name == null) {
-            throw new IllegalArgumentException("The name of the HLA interaction class to be unpublished must not be null.");
-        }
-
         HLAInteractionClass interactionClass;
         if ((interactionClass = getInteractionClass(name)) != null) {
             interactionClass.unpublish();
         }
     }
 
-    public void subscribeInteractionClass(String name, Class<?> proxyClass) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, FederateServiceInvocationsAreBeingReportedViaMOM, SaveInProgress {
-        if (name == null) {
-            throw new IllegalArgumentException("The name of the HLA interaction class to be subscribed must not be null.");
-        }
-
+    public void subscribeInteractionClass(Class<?> proxyClass) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, FederateServiceInvocationsAreBeingReportedViaMOM, SaveInProgress {
         HLAInteractionClass interactionClass;
-        if ((interactionClass = getInteractionClass(name)) == null) {
-            interactionClass = createInteractionClass(name, proxyClass);
+        if ((interactionClass = getInteractionClass(proxyClass)) == null) {
+            interactionClass = createInteractionClass(proxyClass);
             this.interactionClasses.add(interactionClass);
         }
 
-        proxyClassEqualityCheck(interactionClass.getProxyClass(), proxyClass);
         interactionClass.subscribe();
     }
 
     public void unsubscribeInteractionClass(String name) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        if (name == null) {
-            throw new IllegalArgumentException("The name of the HLA interaction class to be unsubscribed must not be null.");
-        }
-
         HLAInteractionClass interactionClass;
         if ((interactionClass = getInteractionClass(name)) != null) {
             interactionClass.unsubscribe();
-        }
-    }
-
-    private void proxyClassEqualityCheck(Class<?> expected, Class<?> actual) {
-        if (!expected.equals(actual)) {
-            throw new IllegalArgumentException("The HLA interaction class already uses <" + expected + "> to represent interaction objects and this cannot be reassigned to <" + actual + ">.");
         }
     }
 

@@ -1,6 +1,7 @@
 package org.see.skf.internal.executive;
 
 import hla.rti1516_2025.exceptions.*;
+import org.see.skf.core.ExCONotInitializedException;
 import org.see.skf.core.ExecutionConfiguration;
 import org.see.skf.core.ExecutionMode;
 import org.see.skf.core.SKFederateBase;
@@ -8,6 +9,10 @@ import org.see.skf.internal.SRFOMSynchronizationPoint;
 import org.see.skf.internal.TimeManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public final class ExecutiveStateManager {
 
@@ -46,8 +51,9 @@ public final class ExecutiveStateManager {
     private void init() {
         // Perfectly safe cast because we properly vet the existence and type for the ExCO object instance early on.
         ExecutionConfiguration exCO = (ExecutionConfiguration) this.federate.queryRemoteObjectInstance("ExCO");
+
         if (exCO == null) {
-            throw new IllegalStateException("Cannot proceed with federate execution because ExCO attribute values were not properly initialized.");
+            throw new ExCONotInitializedException("Cannot proceed with federate execution because ExCO attribute values were not properly initialized.");
         }
 
         // Checks to handle premature state transitions when the federate just joins, especially in the case of late joiners.

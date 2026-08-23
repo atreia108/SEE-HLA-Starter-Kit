@@ -34,8 +34,8 @@ import org.see.skf.internal.FederateMapping;
 import org.see.skf.internal.InternalObjectBuilderException;
 import org.see.skf.internal.SyncPointManager;
 import org.see.skf.internal.runtime.HLAInteractionManager;
-import org.see.skf.internal.runtime.HLAObjectManager;
 import org.see.skf.internal.callbacks.HLACallbackManager;
+import org.see.skf.internal.runtime.HLAObjectManager2;
 
 import java.util.concurrent.ExecutorService;
 
@@ -43,7 +43,7 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
     private final FederateMapping federateMapping;
     private final HLACallbackManager callbackManager;
-    private final HLAObjectManager objectManager;
+    private final HLAObjectManager2 objectManager;
     private final HLAInteractionManager interactionManager;
     private final SyncPointManager syncPointManager;
     private final ExecutorService executor;
@@ -57,27 +57,32 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
         this.federateMapping = builder.federateMapping;
     }
 
+    // N.B. This operation is NOT safe to launch in ExecutorService because of a contentious race condition where the RTI service thread will
+    // relay updates via the reflectAttributeValues callback before this thread is done creating the internal object instance representations for the federate.
     @Override
     public void discoverObjectInstance(ObjectInstanceHandle objectInstance, ObjectClassHandle objectClass, String objectInstanceName, FederateHandle producingFederate) throws FederateInternalError {
-        this.executor.submit(() -> {
-            String producingFederateName = this.federateMapping.getAndCreateIfAbsent(producingFederate);
-            this.objectManager.remoteObjectInstanceDiscovered(objectInstance, objectInstanceName, objectClass, producingFederateName);
-        });
+        String producingFederateName = this.federateMapping.getAndCreateIfAbsent(producingFederate);
+        this.objectManager.remoteObjectInstanceDiscovered(objectInstance, objectInstanceName, objectClass, producingFederateName);
     }
 
     @Override
     public void removeObjectInstance(ObjectInstanceHandle objectInstance, byte[] userSuppliedTag, FederateHandle producingFederate) throws FederateInternalError {
-        this.executor.submit(() -> this.objectManager.remoteObjectInstanceDestroyed(objectInstance));
+        this.executor.submit(() -> remoteObjectInstanceRemoved(objectInstance, producingFederate));
     }
 
     @Override
     public void removeObjectInstance(ObjectInstanceHandle objectInstance, byte[] userSuppliedTag, FederateHandle producingFederate, LogicalTime<?, ?> time, OrderType sentOrderType, OrderType receivedOrderType, MessageRetractionHandle optionalRetraction) throws FederateInternalError {
-        this.executor.submit(() -> this.objectManager.remoteObjectInstanceDestroyed(objectInstance));
+        this.executor.submit(() -> remoteObjectInstanceRemoved(objectInstance, producingFederate));
+    }
+
+    private void remoteObjectInstanceRemoved(ObjectInstanceHandle objectInstance, FederateHandle producingFederate) {
+        String producingFederateName = this.federateMapping.getAndCreateIfAbsent(producingFederate);
+        this.objectManager.remoteObjectInstanceDestroyed(objectInstance, producingFederateName);
     }
 
     @Override
     public void reflectAttributeValues(ObjectInstanceHandle objectInstance, AttributeHandleValueMap attributeValues, byte[] userSuppliedTag, TransportationTypeHandle transportationType, FederateHandle producingFederate, RegionHandleSet optionalSentRegions) throws FederateInternalError {
-        this.executor.submit(() -> reflectAttributeValueCallback(objectInstance, attributeValues));
+        reflectAttributeValueCallback(objectInstance, attributeValues);
     }
 
     @Override
@@ -86,10 +91,10 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
     }
 
     private void reflectAttributeValueCallback(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues) {
-        // A callback may have elicited this update, or it's just a casual instance attribute update callback from the RTI. Either way, the write operation should not be repeated twice for the object instance.
-        if (!this.callbackManager.completeReflectAttributeValueCallback(instanceHandle, attributeValues)) {
-            this.objectManager.remoteObjectInstanceUpdateReceived(instanceHandle, attributeValues);
-        }
+        this.executor.submit(() -> {
+            this.objectManager.remoteObjectInstanceUpdated(instanceHandle, attributeValues);
+            this.callbackManager.completeInstanceDiscoveryValueAcquisitionCallback(instanceHandle);
+        });
     }
 
     // TODO
@@ -156,7 +161,7 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
         private HLACallbackManager callbackManager;
 
-        private HLAObjectManager objectManager;
+        private HLAObjectManager2 objectManager;
 
         private HLAInteractionManager interactionManager;
 
@@ -174,7 +179,7 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
             return this;
         }
 
-        Builder objectManager(HLAObjectManager objectManager) {
+        Builder objectManager(HLAObjectManager2 objectManager) {
             this.objectManager = objectManager;
             return this;
         }

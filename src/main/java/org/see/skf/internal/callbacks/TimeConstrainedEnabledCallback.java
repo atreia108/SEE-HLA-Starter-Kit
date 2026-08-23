@@ -2,14 +2,13 @@ package org.see.skf.internal.callbacks;
 
 import hla.rti1516_2025.time.HLAinteger64Time;
 
-import java.util.concurrent.FutureTask;
-
 final class TimeConstrainedEnabledCallback extends AbstractCallback<HLAinteger64Time> {
 
     TimeConstrainedEnabledCallback(HLAinteger64Time outcome) {
-        super(outcome);
+        super(outcome, 1);
     }
 
+    /*
     @Override
     protected FutureTask<HLAinteger64Time> createTask() {
         return new FutureTask<>(() -> {
@@ -22,4 +21,5 @@ final class TimeConstrainedEnabledCallback extends AbstractCallback<HLAinteger64
             }
         });
     }
+     */
 }

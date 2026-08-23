@@ -1,5 +1,6 @@
 package org.see.skf.internal.runtime;
 
+import org.see.skf.core.annotations.Attribute;
 import org.see.skf.core.annotations.InteractionClass;
 import org.see.skf.core.annotations.ObjectClass;
 import org.see.skf.core.annotations.Parameter;
@@ -17,6 +18,11 @@ public final class SKAnnotatedTypeParser2 {
         this.coderManager = coderManager;
     }
 
+    public Metadata parseObjectInstanceProxy(Class<?> proxyClass) {
+        isNull(proxyClass);
+        return buildObjectInstanceStructure(proxyClass);
+    }
+
     public Metadata parseInteractionProxy(Class<?> proxyClass) {
         isNull(proxyClass);
         return buildInteractionStructure(proxyClass);
@@ -30,11 +36,46 @@ public final class SKAnnotatedTypeParser2 {
 
     private void illegalMultiAnnotationCheck(Class<?> clazz) {
         ObjectClass a1 = clazz.getAnnotation(ObjectClass.class);
-        ObjectClass a2 = clazz.getAnnotation(ObjectClass.class);
+        InteractionClass a2 = clazz.getAnnotation(InteractionClass.class);
 
         if (a1 != null && a2 != null) {
-           throw new AnnotationParseException(clazz + " uses @ObjectClass and @InteractionClass annotation which is disallowed.");
+           throw new AnnotationParseException(clazz + " uses both @ObjectClass and @InteractionClass annotations which is disallowed.");
         }
+    }
+
+    private Metadata buildObjectInstanceStructure(Class<?> clazz) {
+        ObjectClass fomNameAnnotation = clazz.getAnnotation(ObjectClass.class);
+        if (fomNameAnnotation == null) {
+            throw new AnnotationParseException("No @ObjectClass annotation attached for <" + clazz.getName() + ">.");
+        }
+
+        Metadata metadata = new Metadata(clazz, fomNameAnnotation.name());
+        while (clazz != Object.class && clazz.isAnnotationPresent(ObjectClass.class)) {
+            illegalMultiAnnotationCheck(clazz);
+
+            for (Field field : clazz.getDeclaredFields()) {
+                Attribute attribute = field.getAnnotation(Attribute.class);
+
+                if (attribute != null) {
+                    String attributeName = attribute.name();
+                    Class<? extends Coder<?>> coderClass = attribute.coder();
+                    CoderManager.CoderReflectionData coderData = this.coderManager.get(coderClass);
+
+                    Trait t = new Trait.Builder()
+                            .sourceClass(clazz)
+                            .field(field)
+                            .annotatedName(attributeName)
+                            .coderData(coderData)
+                            .build();
+
+                    metadata.add(t, clazz);
+                }
+            }
+
+            clazz = clazz.getSuperclass();
+        }
+
+        return metadata;
     }
 
     private Metadata buildInteractionStructure(Class<?> clazz) {
