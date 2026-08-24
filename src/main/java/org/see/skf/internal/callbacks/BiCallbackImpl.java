@@ -3,14 +3,14 @@ package org.see.skf.internal.callbacks;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 
-final class IAbstractBiCallbackImpl<T,U> implements IAbstractBiCallback<T,U> {
+final class BiCallbackImpl<T,U> implements BiCallback<T,U> {
     private final T target;
     private U outcome;
     private final FutureTask<U> task;
 
     private final CountDownLatch latch;
 
-    IAbstractBiCallbackImpl(T target, int latchCount) {
+    BiCallbackImpl(T target, int latchCount) {
         this.target = target;
         this.task = createTask();
 

@@ -51,7 +51,7 @@ public final class FederatePropertyConfiguration implements SKFederateConfigurat
     private static final String FEDERATE_ROLE_PROPERTY = "federateRole";
     private static final String MAX_THREADS = "maxThreads";
 
-    private static final int DEFAULT_MAX_THREADS = 32;
+    private static final int DEFAULT_MAX_THREADS = 16;
 
     private final String rtiAddress;
     private final String federationName;

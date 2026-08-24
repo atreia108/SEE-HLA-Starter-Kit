@@ -378,53 +378,6 @@ public abstract class SKFederateBase implements SKFederate {
         return this.timeManager.isTimeAdvancing();
     }
 
-    /*
-    private void receiveExCOUpdates() {
-
-        Future<Object> task = queryRemoteObjectInstance("ExCO", false);
-
-        try {
-            this.exCO = (ExecutionConfiguration) task.get();
-        } catch (InterruptedException | ExecutionException e) {
-            Thread.currentThread().interrupt();
-            throw new ExCONotInitializedException("Cannot proceed with initialization due to failure in acquiring the ExCO object instance.", e);
-        }
-
-        addPropertyChangeListener(this.exCO, new ExCOUpdateListener(this.executiveStateManager));
-
-        addObjectInstanceListener(new ObjectInstanceListener() {
-            @Override
-            public void created(String name, Object instance, String producingFederateName) {
-                // Ignore.
-            }
-
-            @Override
-            public void destroyed(String name, String producingFederateName) {
-                if (name.equals("ExCO")) {
-                    executiveStateManager.changeExecutionMode(ExecutionMode.EXEC_MODE_SHUTDOWN);
-                }
-            }
-        });
-
-        Future<ExecutionConfiguration> task = trackRemoteObjectInstance(new ExecutionConfiguration(), "ExCO");
-        try {
-            this.exCO = task.get();
-        } catch (InterruptedException | ExecutionException e) {
-            Thread.currentThread().interrupt();
-            throw new ExCONotInitializedException("Cannot proceed with initialization due to failure in acquiring the ExCO object instance.", e);
-        }
-
-        addPropertyChangeListener(this.exCO, new ExCOUpdateListener(this.executiveStateManager));
-
-        addObjectInstanceDestroyedListener(instanceName -> {
-                if (instanceName.equals("ExCO")) {
-                    this.executiveStateManager.changeExecutionMode(ExecutionMode.EXEC_MODE_SHUTDOWN);
-                }
-        });
-    }
-
-    */
-
     protected final void setupTimeManagement() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         try {
             logger.info("Awaiting discovery of ExCO object instance.");
@@ -456,10 +409,6 @@ public abstract class SKFederateBase implements SKFederate {
 
     protected final void exec() throws RTIexception {
         this.executiveStateManager.run();
-    }
-
-    public final ExecutionConfiguration getExCO() {
-        return this.exCO;
     }
 
     public abstract void processRunJobs() throws RTIexception;

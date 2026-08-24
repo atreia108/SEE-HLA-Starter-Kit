@@ -22,7 +22,7 @@ public final class FederateMapping {
         this.handleToName = new HashMap<>();
     }
 
-    public String getAndCreateIfAbsent(FederateHandle handle) {
+    public String get(FederateHandle handle) {
         this.handleToName.computeIfAbsent(handle, h -> {
             try {
                 return this.rtiAmbassador.getFederateName(handle);

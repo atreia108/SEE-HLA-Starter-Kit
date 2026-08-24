@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 final class HLAObjectClass2 {
 
     private static final Logger logger = LoggerFactory.getLogger(HLAObjectClass2.class);
-    private static final String HLA_PRIVILEGE_TO_DELETE_OBJECT = "HLAprivilegeToDeleteObject";
+    // private static final String HLA_PRIVILEGE_TO_DELETE_OBJECT = "HLAprivilegeToDeleteObject";
 
     private final RTIambassador rtiAmbassador;
 

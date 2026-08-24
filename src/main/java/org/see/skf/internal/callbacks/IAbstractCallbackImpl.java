@@ -3,7 +3,7 @@ package org.see.skf.internal.callbacks;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 
-final class IAbstractCallbackImpl<T> implements IAbstractCallback<T> {
+final class IAbstractCallbackImpl<T> implements Callback<T> {
 
     private T outcome;
     private final FutureTask<T> task;

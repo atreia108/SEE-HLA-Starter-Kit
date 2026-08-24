@@ -61,39 +61,40 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
     // relay updates via the reflectAttributeValues callback before this thread is done creating the internal object instance representations for the federate.
     @Override
     public void discoverObjectInstance(ObjectInstanceHandle objectInstance, ObjectClassHandle objectClass, String objectInstanceName, FederateHandle producingFederate) throws FederateInternalError {
-        String producingFederateName = this.federateMapping.getAndCreateIfAbsent(producingFederate);
-        this.objectManager.remoteObjectInstanceDiscovered(objectInstance, objectInstanceName, objectClass, producingFederateName);
+        this.federateMapping.get(producingFederate);
+        this.objectManager.remoteObjectInstanceDiscovered(objectInstance, objectInstanceName, objectClass);
     }
 
     @Override
     public void removeObjectInstance(ObjectInstanceHandle objectInstance, byte[] userSuppliedTag, FederateHandle producingFederate) throws FederateInternalError {
-        this.executor.submit(() -> remoteObjectInstanceRemoved(objectInstance, producingFederate));
+        this.executor.submit(() -> remoteObjectInstanceDestroyed(objectInstance, producingFederate));
     }
 
     @Override
     public void removeObjectInstance(ObjectInstanceHandle objectInstance, byte[] userSuppliedTag, FederateHandle producingFederate, LogicalTime<?, ?> time, OrderType sentOrderType, OrderType receivedOrderType, MessageRetractionHandle optionalRetraction) throws FederateInternalError {
-        this.executor.submit(() -> remoteObjectInstanceRemoved(objectInstance, producingFederate));
+        this.executor.submit(() -> remoteObjectInstanceDestroyed(objectInstance, producingFederate));
     }
 
-    private void remoteObjectInstanceRemoved(ObjectInstanceHandle objectInstance, FederateHandle producingFederate) {
-        String producingFederateName = this.federateMapping.getAndCreateIfAbsent(producingFederate);
+    private void remoteObjectInstanceDestroyed(ObjectInstanceHandle objectInstance, FederateHandle producingFederate) {
+        String producingFederateName = this.federateMapping.get(producingFederate);
         this.objectManager.remoteObjectInstanceDestroyed(objectInstance, producingFederateName);
     }
 
     @Override
     public void reflectAttributeValues(ObjectInstanceHandle objectInstance, AttributeHandleValueMap attributeValues, byte[] userSuppliedTag, TransportationTypeHandle transportationType, FederateHandle producingFederate, RegionHandleSet optionalSentRegions) throws FederateInternalError {
-        reflectAttributeValueCallback(objectInstance, attributeValues);
+        this.executor.submit(() -> reflectAttributeValueCallback(objectInstance, attributeValues, producingFederate));
     }
 
     @Override
     public void reflectAttributeValues(ObjectInstanceHandle objectInstance, AttributeHandleValueMap attributeValues, byte[] userSuppliedTag, TransportationTypeHandle transportationType, FederateHandle producingFederate, RegionHandleSet optionalSentRegions, LogicalTime<?, ?> time, OrderType sentOrderType, OrderType receivedOrderType, MessageRetractionHandle optionalRetraction) throws FederateInternalError {
-        this.executor.submit(() -> reflectAttributeValueCallback(objectInstance, attributeValues));
+        this.executor.submit(() -> reflectAttributeValueCallback(objectInstance, attributeValues, producingFederate));
     }
 
-    private void reflectAttributeValueCallback(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues) {
+    private void reflectAttributeValueCallback(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues, FederateHandle producingFederate) {
         this.executor.submit(() -> {
-            this.objectManager.remoteObjectInstanceUpdated(instanceHandle, attributeValues);
-            this.callbackManager.completeInstanceDiscoveryValueAcquisitionCallback(instanceHandle);
+            String producingFederateName = this.federateMapping.get(producingFederate);
+            boolean broadcastInstanceDiscoveryComplete = this.callbackManager.completeInstanceDiscoveryValueAcquisitionCallback(instanceHandle);
+            this.objectManager.remoteObjectInstanceUpdated(instanceHandle, attributeValues, producingFederateName, broadcastInstanceDiscoveryComplete);
         });
     }
 
@@ -120,7 +121,7 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
     private void interactionReceived(InteractionClassHandle interactionClass, ParameterHandleValueMap parameterValues, FederateHandle producingFederate) throws FederateInternalError {
         this.executor.submit(() -> {
-            String producingFederateName = this.federateMapping.getAndCreateIfAbsent(producingFederate);
+            String producingFederateName = this.federateMapping.get(producingFederate);
             this.interactionManager.interactionReceived(interactionClass, parameterValues, producingFederateName);
         });
     }

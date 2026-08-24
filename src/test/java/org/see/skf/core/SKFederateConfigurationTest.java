@@ -58,7 +58,7 @@ class SKFederateConfigurationTest {
         assertEquals("Behavior", config.federateType());
         assertEquals(SKFederate.Role.LATE, config.federateRole());
         assertEquals(1000000, config.lookahead());
-        assertEquals(32, config.maxThreads());
+        assertEquals(8, config.maxThreads());
         assertTrue(areFomModulesValid(config.additionalFomModules()));
     }
 

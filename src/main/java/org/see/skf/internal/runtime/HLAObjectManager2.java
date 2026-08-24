@@ -30,7 +30,7 @@ public class HLAObjectManager2 {
 
     private final Set<ObjectInstance> objectInstances;
 
-    private final Set<ObjectInstanceListener> listeners;
+    private final Set<ObjectInstanceListener> objectInstanceListeners;
 
     public HLAObjectManager2(HLACallbackManager callbackManager, ExecutorService executor, SKAnnotatedTypeParser2 parser) {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
@@ -41,7 +41,7 @@ public class HLAObjectManager2 {
 
         this.objectClasses = new CopyOnWriteArraySet<>();
         this.objectInstances = new CopyOnWriteArraySet<>();
-        this.listeners = new CopyOnWriteArraySet<>();
+        this.objectInstanceListeners = new CopyOnWriteArraySet<>();
     }
 
     private HLAObjectClass2 createObjectClass(Class<?> proxyClass) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
@@ -141,7 +141,7 @@ public class HLAObjectManager2 {
 
     }
 
-    public void remoteObjectInstanceDiscovered(ObjectInstanceHandle instanceHandle, String instanceName, ObjectClassHandle classHandle, String producingFederateName) {
+    public void remoteObjectInstanceDiscovered(ObjectInstanceHandle instanceHandle, String instanceName, ObjectClassHandle classHandle) {
         HLAObjectClass2 objectClass = getObjectClass(objClass -> objClass.getHandle().equals(classHandle));
 
         if (objectClass != null) {
@@ -149,29 +149,22 @@ public class HLAObjectManager2 {
             ObjectInstance instance = new ObjectInstance(instanceName, instanceHandle, proxy, objectClass);
             this.objectInstances.add(instance);
 
-            this.executor.submit(() -> {
-                Future<Void> task = this.callbackManager.invokeInstanceDiscoveryValueAcquisitionCallback(instanceName, instanceHandle, objectClass.getSubscribedAttributes());
-                try {
-                    task.get(8L, TimeUnit.SECONDS);
-                    this.listeners.forEach(listener -> listener.created(instanceName, proxy, producingFederateName));
-                } catch (InterruptedException | ExecutionException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("Failed to fetch the latest values for remote object instance <" + instanceName +">.", e);
-                } catch (TimeoutException e) {
-                    logger.warn("Attempt to fetch the latest values for the object instance <{}> timed out.", instanceName, e);
-                }
-            });
+            this.callbackManager.invokeInstanceDiscoveryValueAcquisitionCallback(instanceName, instanceHandle, objectClass.getSubscribedAttributes());
         } else {
             logger.debug("Ignored newly-discovered object instance <{}> as no corresponding object class information for it is known.", instanceName);
         }
     }
 
-    public void remoteObjectInstanceUpdated(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues) {
+    public void remoteObjectInstanceUpdated(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues, String producingFederateName, boolean broadcastInstanceDiscovery) {
         ObjectInstance objectInstance = getObjectInstance(instance -> instance.handle.equals(instanceHandle));
 
         if (objectInstance != null) {
             HLAObjectClass2 objectClass = objectInstance.objectClass;
             objectClass.reflectRemoteUpdate(objectInstance, attributeValues);
+
+            if (broadcastInstanceDiscovery) {
+                this.objectInstanceListeners.forEach(listener -> listener.created(objectInstance.name, objectInstance.proxy, producingFederateName));
+            }
         } else {
             logger.error("Discarded update received for object instance with the handle <{}> as no corresponding serialization information for it is known to the federate.", instanceHandle);
         }
@@ -182,7 +175,7 @@ public class HLAObjectManager2 {
 
         if (objectInstance != null) {
             this.objectInstances.remove(objectInstance);
-            this.listeners.forEach(listener -> listener.destroyed(objectInstance.name, producingFederateName));
+            this.objectInstanceListeners.forEach(listener -> listener.destroyed(objectInstance.name, producingFederateName));
         }
     }
 
@@ -212,11 +205,11 @@ public class HLAObjectManager2 {
     }
 
     public void addObjectInstanceListener(ObjectInstanceListener listener) {
-        this.listeners.add(listener);
+        this.objectInstanceListeners.add(listener);
     }
 
     public void removeObjectInstanceListener(ObjectInstanceListener listener) {
-        this.listeners.remove(listener);
+        this.objectInstanceListeners.remove(listener);
     }
 
     public void addPropertyChangeListener(Object proxy, PropertyChangeListener listener) {
