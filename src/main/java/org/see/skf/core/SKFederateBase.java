@@ -123,8 +123,6 @@ public abstract class SKFederateBase implements SKFederate {
                 }
             }
         });
-
-        addPropertyChangeListener(this.exCO, new ExCOUpdateListener(this.executiveStateManager));
     }
 
     @Override
@@ -334,23 +332,13 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
-    public void addSyncPointAnnouncementListener(SyncPointAnnouncementListener listener) {
-        this.syncPointManager.addSyncPointAnnouncementListener(listener);
+    public final void addSyncPointListener(String label, SyncPointListener listener) {
+        this.syncPointManager.addSyncPointListener(label, listener);
     }
 
     @Override
-    public void removeSyncPointAnnouncementListener(SyncPointAnnouncementListener listener) {
-        this.syncPointManager.removeSyncPointAnnouncementListener(listener);
-    }
-
-    @Override
-    public void addFederationSynchronizedSyncPointListener(FederationSynchronizedListener listener) {
-        this.syncPointManager.addFederationSynchronizedSyncPointListener(listener);
-    }
-
-    @Override
-    public void removeFederationSynchronizedSyncPointListener(FederationSynchronizedListener listener) {
-        this.syncPointManager.removeFederationSynchronizedSyncPointListener(listener);
+    public final void removeSyncPointListener(SyncPointListener listener) {
+        this.syncPointManager.removeSyncPointListener(listener);
     }
 
     @Override
@@ -382,6 +370,8 @@ public abstract class SKFederateBase implements SKFederate {
         try {
             logger.info("Awaiting discovery of ExCO object instance.");
             exCODiscoveryLatch.await();
+
+            addPropertyChangeListener(this.exCO, new ExCOUpdateListener(this.executiveStateManager));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new ExCONotInitializedException("Cannot proceed with initialization because the ExCO object instance could not be acquired.");

@@ -63,13 +63,9 @@ public interface SKFederate {
 
     void achieveSynchronizationPoint(String label, boolean success) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
 
-    void addSyncPointAnnouncementListener(SyncPointAnnouncementListener listener);
+    void addSyncPointListener(String label, SyncPointListener listener);
 
-    void removeSyncPointAnnouncementListener(SyncPointAnnouncementListener listener);
-
-    void addFederationSynchronizedSyncPointListener(FederationSynchronizedListener listener);
-
-    void removeFederationSynchronizedSyncPointListener(FederationSynchronizedListener listener);
+    void removeSyncPointListener(SyncPointListener listener);
 
     double getSimulationTime();
 

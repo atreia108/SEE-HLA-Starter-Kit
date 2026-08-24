@@ -2,27 +2,27 @@ package org.see.skf.internal;
 
 import hla.rti1516_2025.RTIambassador;
 import hla.rti1516_2025.exceptions.*;
-import org.see.skf.core.FederationSynchronizedListener;
-import org.see.skf.core.SyncPointAnnouncementListener;
+import org.see.skf.core.SyncPointListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 public final class SyncPointManager {
 
-    private final RTIambassador rtiAmbassador;
-
     private static final Logger logger = LoggerFactory.getLogger(SyncPointManager.class);
 
-    private final Set<SyncPointAnnouncementListener> syncPointAnnouncementListeners;
-    private final Set<FederationSynchronizedListener> federationSynchronizedListeners;
+    private final RTIambassador rtiAmbassador;
+
+    private final Map<String, Set<SyncPointListener>> labelToListeners;
 
     public SyncPointManager() {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
-        this.syncPointAnnouncementListeners = new CopyOnWriteArraySet<>();
-        this.federationSynchronizedListeners = new CopyOnWriteArraySet<>();
+        this.labelToListeners = new ConcurrentHashMap<>();
     }
 
     public void achieveSyncPoint(String label) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
@@ -45,27 +45,51 @@ public final class SyncPointManager {
         }
     }
 
-    public void addSyncPointAnnouncementListener(SyncPointAnnouncementListener listener) {
-        this.syncPointAnnouncementListeners.add(listener);
+    public void addSyncPointListener(String label, SyncPointListener listener) {
+        this.labelToListeners.computeIfAbsent(label, missingLabel -> new HashSet<>());
+        this.labelToListeners.get(label).add(listener);
     }
 
-    public void removeSyncPointAnnouncementListener(SyncPointAnnouncementListener listener) {
-        this.syncPointAnnouncementListeners.remove(listener);
-    }
+    public void removeSyncPointListener(SyncPointListener listener) {
+        /*
+        if (this.labelToListeners.containsKey(label)) {
+            Set<SyncPointListener> listeners = this.labelToListeners.get(label);
+            listeners.remove(listener);
 
-    public void addFederationSynchronizedSyncPointListener(FederationSynchronizedListener listener) {
-        this.federationSynchronizedListeners.add(listener);
-    }
+            if (listeners.isEmpty()) {
+                this.labelToListeners.remove(label);
+            }
+        }
+         */
 
-    public void removeFederationSynchronizedSyncPointListener(FederationSynchronizedListener listener) {
-        this.federationSynchronizedListeners.remove(listener);
+        for (Map.Entry<String, Set<SyncPointListener>> entry : this.labelToListeners.entrySet()) {
+            String label = entry.getKey();
+            Set<SyncPointListener> listeners = entry.getValue();
+            if (listeners.contains(listener)) {
+                listeners.remove(listener);
+
+                if (listeners.isEmpty()) {
+                    this.labelToListeners.remove(label);
+                }
+
+                break;
+            }
+        }
     }
 
     public void syncPointAnnounced(String label) {
-        this.syncPointAnnouncementListeners.forEach(listener -> listener.announced(label));
+        Set<SyncPointListener> listeners = this.labelToListeners.get(label);
+
+        if (!listeners.isEmpty()) {
+            listeners.forEach(SyncPointListener::announced);
+        }
     }
 
     public void federationSynchronized(String label) {
-        this.federationSynchronizedListeners.forEach(listener -> listener.synced(label));
+        Set<SyncPointListener> listeners = this.labelToListeners.get(label);
+
+        if (!listeners.isEmpty()) {
+            listeners.forEach(SyncPointListener::federationSynchronized);
+        }
     }
 }

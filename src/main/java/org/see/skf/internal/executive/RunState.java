@@ -27,6 +27,11 @@ public final class RunState implements TransitiveState {
     @Override
     public void transition(ExecutionMode nextExecutionMode) throws RTIexception {
         if (nextExecutionMode == ExecutionMode.EXEC_MODE_FREEZE) {
+            CountDownLatch latch = new CountDownLatch(1);
+            SyncPointListener listener = createFreezeModeSyncPointListener(latch);
+
+            this.federate.addSyncPointListener(SRFOMSynchronizationPoint.MTR_FREEZE.getLabel(), listener);
+
             ExecutionConfiguration exCO = (ExecutionConfiguration) this.federate.queryRemoteObjectInstance("ExCO");
             if (exCO == null) {
                 throw new ExCONotInitializedException("Cannot perform federate executive state transition as ExCO object instance values could not be retrieved in time.");
@@ -42,15 +47,6 @@ public final class RunState implements TransitiveState {
                 timeToFreeze -= 1.0;
             }
 
-            String freezeModeTransitionLabel = SRFOMSynchronizationPoint.MTR_FREEZE.getLabel();
-            CountDownLatch latch = new CountDownLatch(2);
-
-            SyncPointAnnouncementListener announcementListener = createSyncPointAnnouncementListener(freezeModeTransitionLabel, latch);
-            this.federate.addSyncPointAnnouncementListener(announcementListener);
-
-            FederationSynchronizedListener federationSynchronizedListener = createFederationSynchronizedListener(freezeModeTransitionLabel, latch);
-            this.federate.addFederationSynchronizedSyncPointListener(federationSynchronizedListener);
-
             try {
                 latch.await();
             } catch (InterruptedException e) {
@@ -62,29 +58,28 @@ public final class RunState implements TransitiveState {
             exCO.setNextExecutionMode(null);
             exCO.setNextModeScenarioTime(null);
 
-            this.federate.removeSyncPointAnnouncementListener(announcementListener);
-            this.federate.removeFederationSynchronizedSyncPointListener(federationSynchronizedListener);
+            this.federate.removeSyncPointListener(listener);
         }
     }
 
-    private SyncPointAnnouncementListener createSyncPointAnnouncementListener(String label, CountDownLatch latch) {
-        return syncPointLabel -> {
-            if (syncPointLabel.equals(label)) {
+    private SyncPointListener createFreezeModeSyncPointListener(CountDownLatch latch) {
+        return new SyncPointListener() {
+            @Override
+            public void announced() {
+                String freezeModeTransitionLabel = SRFOMSynchronizationPoint.MTR_FREEZE.getLabel();
+
                 try {
-                    this.federate.achieveSynchronizationPoint(label);
-                    logger.debug("Achieved SRFOM <{}> sync point.", label);
+                    federate.achieveSynchronizationPoint(freezeModeTransitionLabel);
+                    logger.debug("Achieved SRFOM <{}> sync point.", freezeModeTransitionLabel);
 
                     latch.countDown();
                 } catch (RTIexception e) {
-                    logger.error("Failed to achieve the SRFOM synchronization point <{}>.", label, e);
+                    logger.error("Failed to achieve the SRFOM synchronization point <{}>.", freezeModeTransitionLabel, e);
                 }
             }
-        };
-    }
 
-    private FederationSynchronizedListener createFederationSynchronizedListener(String label, CountDownLatch latch) {
-        return syncPointLabel -> {
-            if (syncPointLabel.equals(label)) {
+            @Override
+            public void federationSynchronized() {
                 latch.countDown();
             }
         };

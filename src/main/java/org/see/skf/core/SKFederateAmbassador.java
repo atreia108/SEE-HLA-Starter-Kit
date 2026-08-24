@@ -93,8 +93,8 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
     private void reflectAttributeValueCallback(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues, FederateHandle producingFederate) {
         this.executor.submit(() -> {
             String producingFederateName = this.federateMapping.get(producingFederate);
-            boolean broadcastInstanceDiscoveryComplete = this.callbackManager.completeInstanceDiscoveryValueAcquisitionCallback(instanceHandle);
-            this.objectManager.remoteObjectInstanceUpdated(instanceHandle, attributeValues, producingFederateName, broadcastInstanceDiscoveryComplete);
+            // boolean broadcastInstanceDiscoveryComplete = this.callbackManager.completeInstanceDiscoveryValueAcquisitionCallback(instanceHandle);
+            this.objectManager.remoteObjectInstanceUpdated(instanceHandle, attributeValues, producingFederateName);
         });
     }
 

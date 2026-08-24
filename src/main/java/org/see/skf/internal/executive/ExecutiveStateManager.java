@@ -1,10 +1,7 @@
 package org.see.skf.internal.executive;
 
 import hla.rti1516_2025.exceptions.*;
-import org.see.skf.core.ExCONotInitializedException;
-import org.see.skf.core.ExecutionConfiguration;
-import org.see.skf.core.ExecutionMode;
-import org.see.skf.core.SKFederateBase;
+import org.see.skf.core.*;
 import org.see.skf.internal.SRFOMSynchronizationPoint;
 import org.see.skf.internal.TimeManager;
 import org.slf4j.Logger;
@@ -33,19 +30,7 @@ public final class ExecutiveStateManager {
         this.runState = new RunState(federate, timeManager);
         this.freezeState = new FreezeState(federate);
 
-        this.federate.addSyncPointAnnouncementListener(syncPointLabel -> {
-            String runModeTransitionLabel = SRFOMSynchronizationPoint.MTR_RUN.getLabel();
-            if (syncPointLabel.equals(runModeTransitionLabel)) {
-                try {
-                    this.federate.achieveSynchronizationPoint(runModeTransitionLabel);
-                    logger.debug("Achieved SRFOM <{}> sync point.", runModeTransitionLabel);
-                } catch (RTIexception e) {
-                    logger.error("Failed to achieve the SRFOM synchronization point <{}>.", runModeTransitionLabel, e);
-                }
-
-                changeExecutionMode(ExecutionMode.EXEC_MODE_RUNNING);
-            }
-        });
+        this.federate.addSyncPointListener(SRFOMSynchronizationPoint.MTR_RUN.getLabel(), createRunModeAnnouncedListener());
     }
 
     private void init() {
@@ -74,7 +59,7 @@ public final class ExecutiveStateManager {
 
                 this.localExecutionMode = this.nextExecutionMode;
 
-                logger.info("Federate now operating in the mode: {}.", this.localExecutionMode);
+                logger.info("Federate now operating in the execution mode: {}.", this.localExecutionMode);
             }
 
             if (this.localExecutionMode == ExecutionMode.EXEC_MODE_RUNNING) {
@@ -97,5 +82,28 @@ public final class ExecutiveStateManager {
 
     public synchronized void changeExecutionMode(ExecutionMode executionMode) {
         this.nextExecutionMode = executionMode;
+    }
+
+    private SyncPointListener createRunModeAnnouncedListener() {
+        return new SyncPointListener() {
+            @Override
+            public void announced() {
+                String runModeTransitionLabel = SRFOMSynchronizationPoint.MTR_RUN.getLabel();
+
+                try {
+                    federate.achieveSynchronizationPoint(runModeTransitionLabel);
+                    logger.debug("Achieved SRFOM <{}> sync point.", runModeTransitionLabel);
+                } catch (RTIexception e) {
+                    logger.error("Failed to achieve the SRFOM synchronization point <{}>.", runModeTransitionLabel, e);
+                }
+
+                changeExecutionMode(ExecutionMode.EXEC_MODE_RUNNING);
+            }
+
+            @Override
+            public void federationSynchronized() {
+                // Ignore.
+            }
+        };
     }
 }

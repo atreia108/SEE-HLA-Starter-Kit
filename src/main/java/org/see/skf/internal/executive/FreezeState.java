@@ -1,8 +1,8 @@
 package org.see.skf.internal.executive;
 
 import org.see.skf.core.ExecutionMode;
-import org.see.skf.core.FederationSynchronizedListener;
 import org.see.skf.core.SKFederateBase;
+import org.see.skf.core.SyncPointListener;
 import org.see.skf.internal.SRFOMSynchronizationPoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,11 +22,14 @@ public final class FreezeState implements TransitiveState {
     @Override
     public void transition(ExecutionMode nextExecutionMode) {
         if (nextExecutionMode == ExecutionMode.EXEC_MODE_RUNNING) {
-            String runModeTransitionLabel = SRFOMSynchronizationPoint.MTR_RUN.getLabel();
             CountDownLatch latch = new CountDownLatch(1);
+            SyncPointListener listener = createFederationSynchronizedToFreezeListener(latch);
 
-            FederationSynchronizedListener federationSynchronizedListener = createFederationSynchronizedListener(runModeTransitionLabel, latch);
-            this.federate.addFederationSynchronizedSyncPointListener(federationSynchronizedListener);
+            // FederationSynchronizedListener federationSynchronizedListener = createFederationSynchronizedListener(runModeTransitionLabel, latch);
+            //this.federate.addFederationSynchronizedSyncPointListener(federationSynchronizedListener);
+
+            String runModeTransitionLabel = SRFOMSynchronizationPoint.MTR_RUN.getLabel();
+            this.federate.addSyncPointListener(runModeTransitionLabel, listener);
 
             try {
                 latch.await();
@@ -35,13 +38,30 @@ public final class FreezeState implements TransitiveState {
                 throw new RuntimeException("Federate thread interrupted while waiting for federation synchronization of the SRFOM <" + runModeTransitionLabel + "> synchronization point.", e);
             }
 
-            this.federate.removeFederationSynchronizedSyncPointListener(federationSynchronizedListener);
+            // this.federate.removeFederationSynchronizedSyncPointListener(federationSynchronizedListener);
+            this.federate.removeSyncPointListener(listener);
         }
     }
 
+    /*
     private FederationSynchronizedListener createFederationSynchronizedListener(String label, CountDownLatch latch) {
         return syncPointLabel -> {
             if (syncPointLabel.equals(label)) {
+                latch.countDown();
+            }
+        };
+    }
+     */
+
+    private SyncPointListener createFederationSynchronizedToFreezeListener(CountDownLatch latch) {
+        return new SyncPointListener() {
+            @Override
+            public void announced() {
+                // Ignore.
+            }
+
+            @Override
+            public void federationSynchronized() {
                 latch.countDown();
             }
         };

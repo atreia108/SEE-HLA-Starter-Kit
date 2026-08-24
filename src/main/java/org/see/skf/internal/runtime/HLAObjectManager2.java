@@ -32,6 +32,8 @@ public class HLAObjectManager2 {
 
     private final Set<ObjectInstanceListener> objectInstanceListeners;
 
+    private final Set<ObjectInstanceHandle> instancesPendingInitialValues;
+
     public HLAObjectManager2(HLACallbackManager callbackManager, ExecutorService executor, SKAnnotatedTypeParser2 parser) {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
 
@@ -42,6 +44,7 @@ public class HLAObjectManager2 {
         this.objectClasses = new CopyOnWriteArraySet<>();
         this.objectInstances = new CopyOnWriteArraySet<>();
         this.objectInstanceListeners = new CopyOnWriteArraySet<>();
+        this.instancesPendingInitialValues = new CopyOnWriteArraySet<>();
     }
 
     private HLAObjectClass2 createObjectClass(Class<?> proxyClass) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
@@ -147,24 +150,38 @@ public class HLAObjectManager2 {
         if (objectClass != null) {
             Object proxy = objectClass.createProxy();
             ObjectInstance instance = new ObjectInstance(instanceName, instanceHandle, proxy, objectClass);
-            this.objectInstances.add(instance);
 
-            this.callbackManager.invokeInstanceDiscoveryValueAcquisitionCallback(instanceName, instanceHandle, objectClass.getSubscribedAttributes());
+            this.objectInstances.add(instance);
+            this.instancesPendingInitialValues.add(instanceHandle);
+
+            try {
+                requestAttributeValueUpdate(instanceName, instanceHandle, objectClass.getSubscribedAttributes());
+            } catch (RTIexception e) {
+                logger.error("Failed to request latest attribute values for the newly-discovered object instance <{}>", instanceName);
+            }
+            // this.callbackManager.invokeInstanceDiscoveryValueAcquisitionCallback(instanceName, instanceHandle, objectClass.getSubscribedAttributes());
+
         } else {
             logger.debug("Ignored newly-discovered object instance <{}> as no corresponding object class information for it is known.", instanceName);
         }
     }
 
-    public void remoteObjectInstanceUpdated(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues, String producingFederateName, boolean broadcastInstanceDiscovery) {
+    public void remoteObjectInstanceUpdated(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues, String producingFederateName) {
         ObjectInstance objectInstance = getObjectInstance(instance -> instance.handle.equals(instanceHandle));
 
         if (objectInstance != null) {
             HLAObjectClass2 objectClass = objectInstance.objectClass;
             objectClass.reflectRemoteUpdate(objectInstance, attributeValues);
 
+            if (this.instancesPendingInitialValues.contains(instanceHandle)) {
+                this.objectInstanceListeners.forEach(listener -> listener.created(objectInstance.name, objectInstance.proxy, producingFederateName));
+            }
+
+            /*
             if (broadcastInstanceDiscovery) {
                 this.objectInstanceListeners.forEach(listener -> listener.created(objectInstance.name, objectInstance.proxy, producingFederateName));
             }
+             */
         } else {
             logger.error("Discarded update received for object instance with the handle <{}> as no corresponding serialization information for it is known to the federate.", instanceHandle);
         }
@@ -189,16 +206,20 @@ public class HLAObjectManager2 {
         return null;
     }
 
+    private void requestAttributeValueUpdate(String name, ObjectInstanceHandle handle, AttributeHandleSet attributes) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        try {
+            rtiAmbassador.requestAttributeValueUpdate(handle, attributes, null);
+        } catch (AttributeNotDefined | ObjectInstanceNotKnown e) {
+            throw new RuntimeException("Failed to request the latest attribute values for the object instance <" + name + ">.", e);
+        }
+    }
+
     public void requestRemoteObjectInstanceUpdates(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         ObjectInstance objectInstance = getObjectInstance(instance -> instance.name.equals(name));
 
         if (objectInstance != null) {
-            try {
-                AttributeHandleSet set = objectInstance.objectClass.getAttributeHandlesAsSet(attributeNames);
-                rtiAmbassador.requestAttributeValueUpdate(objectInstance.handle, set, null);
-            } catch (AttributeNotDefined | ObjectInstanceNotKnown e) {
-                throw new RuntimeException("Failed to request the latest attribute values for the object instance <" + name + ">.", e);
-            }
+            AttributeHandleSet set = objectInstance.objectClass.getAttributeHandlesAsSet(attributeNames);
+            requestAttributeValueUpdate(name, objectInstance.handle, set);
         } else {
             logger.warn("Cannot request the latest the values for the remote object instance <{}> because it has not been discovered by this federate yet.", name);
         }
