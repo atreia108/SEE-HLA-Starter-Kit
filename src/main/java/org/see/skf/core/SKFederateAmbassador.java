@@ -34,7 +34,7 @@ import org.see.skf.internal.FederateMapping;
 import org.see.skf.internal.InternalObjectBuilderException;
 import org.see.skf.internal.SyncPointManager;
 import org.see.skf.internal.runtime.HLAInteractionManager;
-import org.see.skf.internal.callbacks.HLACallbackManager;
+import org.see.skf.internal.callbacks.FederateCallbackManager;
 import org.see.skf.internal.runtime.HLAObjectManager2;
 
 import java.util.concurrent.ExecutorService;
@@ -42,7 +42,7 @@ import java.util.concurrent.ExecutorService;
 final class SKFederateAmbassador extends NullFederateAmbassador {
 
     private final FederateMapping federateMapping;
-    private final HLACallbackManager callbackManager;
+    private final FederateCallbackManager callbackManager;
     private final HLAObjectManager2 objectManager;
     private final HLAInteractionManager interactionManager;
     private final SyncPointManager syncPointManager;
@@ -93,15 +93,13 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
     private void reflectAttributeValueCallback(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues, FederateHandle producingFederate) {
         this.executor.submit(() -> {
             String producingFederateName = this.federateMapping.get(producingFederate);
-            // boolean broadcastInstanceDiscoveryComplete = this.callbackManager.completeInstanceDiscoveryValueAcquisitionCallback(instanceHandle);
             this.objectManager.remoteObjectInstanceUpdated(instanceHandle, attributeValues, producingFederateName);
         });
     }
 
-    // TODO
     @Override
     public void provideAttributeValueUpdate(ObjectInstanceHandle objectInstance, AttributeHandleSet attributes, byte[] userSuppliedTag) throws FederateInternalError {
-
+        this.executor.submit(() -> this.objectManager.provideObjectInstanceUpdate(objectInstance, attributes));
     }
 
     @Override
@@ -160,7 +158,7 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
         private ExecutorService executor;
 
-        private HLACallbackManager callbackManager;
+        private FederateCallbackManager callbackManager;
 
         private HLAObjectManager2 objectManager;
 
@@ -175,7 +173,7 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
             return this;
         }
 
-        Builder callbackManager(HLACallbackManager callbackManager) {
+        Builder callbackManager(FederateCallbackManager callbackManager) {
             this.callbackManager = callbackManager;
             return this;
         }

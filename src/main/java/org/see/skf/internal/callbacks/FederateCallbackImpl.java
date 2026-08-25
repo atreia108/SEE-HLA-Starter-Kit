@@ -3,14 +3,14 @@ package org.see.skf.internal.callbacks;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 
-final class CallbackImpl<T> implements Callback<T> {
+final class FederateCallbackImpl<T> implements FederateCallback<T> {
 
     private T outcome;
     private final FutureTask<T> task;
 
     private final CountDownLatch latch;
 
-    CallbackImpl(int latchCount) {
+    FederateCallbackImpl(int latchCount) {
         this.task = createTask();
         this.latch = new CountDownLatch(latchCount);
     }

@@ -23,11 +23,13 @@ public interface SKFederate {
 
     void unsubscribeObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
 
-    String createObjectInstance(Object objectInstance) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
+    String createObjectInstance(String objectClassName, Object objectInstance) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
 
-    Future<Void> createObjectInstance(Object objectInstance, String name);
+    Future<Void> createObjectInstance(String objectClassName, String name, Object objectInstance);
 
     void updateObjectInstance(Object objectInstance, String... attributes) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress;
+
+    boolean isRemoteObjectInstanceDiscovered(String name);
 
     Object queryRemoteObjectInstance(String name);
 
@@ -59,9 +61,9 @@ public interface SKFederate {
 
     void removeInteractionListener(InteractionListener listener);
 
-    void achieveSynchronizationPoint(String label) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
+    void achieveSyncPoint(String label) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
 
-    void achieveSynchronizationPoint(String label, boolean success) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
+    void achieveSyncPoint(String label, boolean success) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
 
     void addSyncPointListener(String label, SyncPointListener listener);
 

@@ -6,12 +6,4 @@ public final class ExCONotInitializedException extends RuntimeException {
         super(message);
     }
 
-    public ExCONotInitializedException(Throwable cause) {
-        super(cause);
-    }
-
-    public ExCONotInitializedException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
 }

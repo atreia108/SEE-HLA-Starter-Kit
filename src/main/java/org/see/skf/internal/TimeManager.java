@@ -7,7 +7,7 @@ import hla.rti1516_2025.time.HLAinteger64Interval;
 import hla.rti1516_2025.time.HLAinteger64Time;
 import hla.rti1516_2025.time.HLAinteger64TimeFactory;
 
-import org.see.skf.internal.callbacks.HLACallbackManager;
+import org.see.skf.internal.callbacks.FederateCallbackManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +28,7 @@ public final class TimeManager {
     private HLAinteger64Time logicalTime;
     private HLAinteger64Interval logicalTimeInterval;
 
-    private final HLACallbackManager callbackManager;
+    private final FederateCallbackManager callbackManager;
 
     private final long lookaheadValue;
     private double simulationElapsedTime;
@@ -38,7 +38,7 @@ public final class TimeManager {
 
     private final AtomicBoolean isTimeAdvancing;
 
-    public TimeManager(long lookaheadValue, HLACallbackManager callbackManager) {
+    public TimeManager(long lookaheadValue, FederateCallbackManager callbackManager) {
         this.lookaheadValue = lookaheadValue;
         this.callbackManager = callbackManager;
 

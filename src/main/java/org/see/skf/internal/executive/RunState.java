@@ -2,15 +2,13 @@ package org.see.skf.internal.executive;
 
 import hla.rti1516_2025.exceptions.*;
 import org.see.skf.core.*;
+import org.see.skf.core.ExCONotInitializedException;
 import org.see.skf.internal.SRFOMSynchronizationPoint;
 import org.see.skf.internal.TimeManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 public final class RunState implements TransitiveState {
 
@@ -69,7 +67,7 @@ public final class RunState implements TransitiveState {
                 String freezeModeTransitionLabel = SRFOMSynchronizationPoint.MTR_FREEZE.getLabel();
 
                 try {
-                    federate.achieveSynchronizationPoint(freezeModeTransitionLabel);
+                    federate.achieveSyncPoint(freezeModeTransitionLabel);
                     logger.debug("Achieved SRFOM <{}> sync point.", freezeModeTransitionLabel);
 
                     latch.countDown();

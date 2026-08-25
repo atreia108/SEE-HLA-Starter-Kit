@@ -11,8 +11,6 @@ import java.util.concurrent.CountDownLatch;
 
 public final class FreezeState implements TransitiveState {
 
-    private static final Logger logger = LoggerFactory.getLogger(FreezeState.class);
-
     private final SKFederateBase federate;
 
     public FreezeState(SKFederateBase federate) {
@@ -25,9 +23,6 @@ public final class FreezeState implements TransitiveState {
             CountDownLatch latch = new CountDownLatch(1);
             SyncPointListener listener = createFederationSynchronizedToFreezeListener(latch);
 
-            // FederationSynchronizedListener federationSynchronizedListener = createFederationSynchronizedListener(runModeTransitionLabel, latch);
-            //this.federate.addFederationSynchronizedSyncPointListener(federationSynchronizedListener);
-
             String runModeTransitionLabel = SRFOMSynchronizationPoint.MTR_RUN.getLabel();
             this.federate.addSyncPointListener(runModeTransitionLabel, listener);
 
@@ -38,20 +33,9 @@ public final class FreezeState implements TransitiveState {
                 throw new RuntimeException("Federate thread interrupted while waiting for federation synchronization of the SRFOM <" + runModeTransitionLabel + "> synchronization point.", e);
             }
 
-            // this.federate.removeFederationSynchronizedSyncPointListener(federationSynchronizedListener);
             this.federate.removeSyncPointListener(listener);
         }
     }
-
-    /*
-    private FederationSynchronizedListener createFederationSynchronizedListener(String label, CountDownLatch latch) {
-        return syncPointLabel -> {
-            if (syncPointLabel.equals(label)) {
-                latch.countDown();
-            }
-        };
-    }
-     */
 
     private SyncPointListener createFederationSynchronizedToFreezeListener(CountDownLatch latch) {
         return new SyncPointListener() {

@@ -3,7 +3,7 @@ package org.see.skf.internal.callbacks;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 
-final class BiCallbackImpl<T,U> implements BiCallback<T,U> {
+final class BiCallbackImpl<T,U> implements FederateBiCallback<T,U> {
     private final T target;
     private U outcome;
     private final FutureTask<U> task;

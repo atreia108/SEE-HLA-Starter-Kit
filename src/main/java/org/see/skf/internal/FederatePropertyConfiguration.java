@@ -87,8 +87,6 @@ public final class FederatePropertyConfiguration implements SKFederateConfigurat
         this.lookahead = getIntegerParameterValue(lookaheadValue);
 
         String maxThreadsValue = configProperties.getProperty(MAX_THREADS);
-        // Method return can potentially cause overflow, BUT an untenable high amount of threads in the 64-bit integer
-        // range is not the best way to run things in the first place, so it should be fine.
         this.maxThreads = maxThreadsValue != null ? (int) getIntegerParameterValue(maxThreadsValue) : DEFAULT_MAX_THREADS;
         logger.debug("Using {} threads for managing federate callbacks.", this.maxThreads);
 

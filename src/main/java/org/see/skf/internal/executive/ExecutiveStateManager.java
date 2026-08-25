@@ -2,14 +2,13 @@ package org.see.skf.internal.executive;
 
 import hla.rti1516_2025.exceptions.*;
 import org.see.skf.core.*;
+import org.see.skf.core.ExCONotInitializedException;
 import org.see.skf.internal.SRFOMSynchronizationPoint;
 import org.see.skf.internal.TimeManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.ExecutorService;
 
 public final class ExecutiveStateManager {
 
@@ -41,9 +40,6 @@ public final class ExecutiveStateManager {
             throw new ExCONotInitializedException("Cannot proceed with federate execution because ExCO attribute values were not properly initialized.");
         }
 
-        // Checks to handle premature state transitions when the federate just joins, especially in the case of late joiners.
-        // TODO
-
         this.localExecutionMode = exCO.getCurrentExecutionMode();
         this.nextExecutionMode = exCO.getNextExecutionMode();
     }
@@ -51,15 +47,15 @@ public final class ExecutiveStateManager {
     public void run() throws RTIexception {
         init();
 
-
         while (this.localExecutionMode != ExecutionMode.EXEC_MODE_SHUTDOWN) {
             if (this.localExecutionMode != this.nextExecutionMode) {
-                TransitiveState state = getTransitiveState(this.localExecutionMode);
-                state.transition(this.nextExecutionMode);
+                if (this.nextExecutionMode != ExecutionMode.EXEC_MODE_SHUTDOWN) {
+                    TransitiveState state = getTransitiveState(this.localExecutionMode);
+                    state.transition(this.nextExecutionMode);
+                }
 
                 this.localExecutionMode = this.nextExecutionMode;
-
-                logger.info("Federate now operating in the execution mode: {}.", this.localExecutionMode);
+                logger.info("Federate execution mode set to: {}.", this.localExecutionMode);
             }
 
             if (this.localExecutionMode == ExecutionMode.EXEC_MODE_RUNNING) {
@@ -67,8 +63,11 @@ public final class ExecutiveStateManager {
             }
         }
 
+        synchronized (this) {
+            notifyAll();
+        }
+
         this.federate.processShutdownJobs();
-        this.federate.shutdownExecution();
     }
 
     private void runModeUpdate() throws RTIexception {
@@ -78,6 +77,10 @@ public final class ExecutiveStateManager {
 
     private TransitiveState getTransitiveState(ExecutionMode executionMode) {
         return executionMode == ExecutionMode.EXEC_MODE_RUNNING ? this.runState : this.freezeState;
+    }
+
+    public synchronized ExecutionMode getLocalExecutionMode() {
+        return this.localExecutionMode;
     }
 
     public synchronized void changeExecutionMode(ExecutionMode executionMode) {
@@ -91,7 +94,7 @@ public final class ExecutiveStateManager {
                 String runModeTransitionLabel = SRFOMSynchronizationPoint.MTR_RUN.getLabel();
 
                 try {
-                    federate.achieveSynchronizationPoint(runModeTransitionLabel);
+                    federate.achieveSyncPoint(runModeTransitionLabel);
                     logger.debug("Achieved SRFOM <{}> sync point.", runModeTransitionLabel);
                 } catch (RTIexception e) {
                     logger.error("Failed to achieve the SRFOM synchronization point <{}>.", runModeTransitionLabel, e);

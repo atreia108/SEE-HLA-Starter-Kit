@@ -209,6 +209,11 @@ final class HLAObjectClass2 {
     }
 
     void reflectRemoteUpdate(HLAObjectManager2.ObjectInstance objectInstance, AttributeHandleValueMap attributeValues) {
+        if (objectInstance.getProxy() == null) {
+            Object proxy = createProxy();
+            objectInstance.setProxy(proxy);
+        }
+
         for (Map.Entry<AttributeHandle, byte[]> entry :  attributeValues.entrySet()) {
             Attribute attribute = getAttribute(entry.getKey());
 

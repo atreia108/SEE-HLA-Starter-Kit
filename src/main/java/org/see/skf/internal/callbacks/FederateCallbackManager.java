@@ -11,31 +11,28 @@ import org.slf4j.LoggerFactory;
 import java.util.Set;
 import java.util.concurrent.*;
 
-public final class HLACallbackManager {
+public final class FederateCallbackManager {
 
-    private static final Logger logger = LoggerFactory.getLogger(HLACallbackManager.class);
+    private static final Logger logger = LoggerFactory.getLogger(FederateCallbackManager.class);
 
     private final RTIambassador rtiAmbassador;
 
     private final ExecutorService executor;
 
-    private final Set<BiCallback<String, Boolean>> nameReservationCallbacks;
-    // private final Set<ObjectInstanceHandle> instanceDiscoveryValueAcquisitionCallbacks;
+    private final Set<FederateBiCallback<String, Boolean>> nameReservationCallbacks;
+    private FederateCallback<HLAinteger64Time> timeConstrainedEnabledCallback;
+    private FederateCallback<HLAinteger64Time> timeRegulationEnabledCallback;
+    private FederateCallback<HLAinteger64Time> timeAdvanceGrantCallback;
 
-    private Callback<HLAinteger64Time> timeConstrainedEnabledCallback;
-    private Callback<HLAinteger64Time> timeRegulationEnabledCallback;
-    private Callback<HLAinteger64Time> timeAdvanceGrantCallback;
-
-    public HLACallbackManager(ExecutorService executor) {
+    public FederateCallbackManager(ExecutorService executor) {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
         this.executor = executor;
 
         this.nameReservationCallbacks = new CopyOnWriteArraySet<>();
-        // this.instanceDiscoveryValueAcquisitionCallbacks = new CopyOnWriteArraySet<>();
     }
 
     public Future<Boolean> invokeNameReservationCallback(String objectInstanceName) throws FederateNotExecutionMember, RestoreInProgress, IllegalName, NotConnected, RTIinternalError, SaveInProgress {
-        BiCallback<String, Boolean> callback = new BiCallbackImpl<>(objectInstanceName,1);
+        FederateBiCallback<String, Boolean> callback = new BiCallbackImpl<>(objectInstanceName,1);
         FutureTask<Boolean> task = callback.getTask();
         this.nameReservationCallbacks.add(callback);
         this.executor.submit(task);
@@ -46,7 +43,7 @@ public final class HLACallbackManager {
     }
 
     public void completeNameReservationCallback(String objectInstanceName, boolean outcomeValue) {
-        for (BiCallback<String, Boolean> callback : this.nameReservationCallbacks) {
+        for (FederateBiCallback<String, Boolean> callback : this.nameReservationCallbacks) {
             if (callback.getTarget().equals(objectInstanceName)) {
                 callback.complete(outcomeValue);
                 this.nameReservationCallbacks.remove(callback);
@@ -54,33 +51,8 @@ public final class HLACallbackManager {
         }
     }
 
-    /*
-    public void invokeInstanceDiscoveryValueAcquisitionCallback(String instanceName, ObjectInstanceHandle instanceHandle, AttributeHandleSet subscribedAttributes) {
-        this.instanceDiscoveryValueAcquisitionCallbacks.add(instanceHandle);
-
-        try {
-            rtiAmbassador.requestAttributeValueUpdate(instanceHandle, subscribedAttributes, null);
-        } catch (AttributeNotDefined | ObjectInstanceNotKnown | SaveInProgress | RestoreInProgress |
-                 FederateNotExecutionMember | NotConnected | RTIinternalError e) {
-            throw new RuntimeException("Failed to dispatch attribute value update request for the discovered object instance <" + instanceName + ">.", e);
-        }
-    }
-
-    public boolean completeInstanceDiscoveryValueAcquisitionCallback(ObjectInstanceHandle targetHandle) {
-        boolean completed = false;
-        for (ObjectInstanceHandle handle  : this.instanceDiscoveryValueAcquisitionCallbacks) {
-            if (handle.equals(targetHandle)) {
-                this.instanceDiscoveryValueAcquisitionCallbacks.remove(handle);
-                completed = true;
-            }
-        }
-
-        return completed;
-    }
-     */
-
     public Future<HLAinteger64Time> invokeTimeConstrainedCallback() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        this.timeConstrainedEnabledCallback = new CallbackImpl<>(1);
+        this.timeConstrainedEnabledCallback = new FederateCallbackImpl<>(1);
         FutureTask<HLAinteger64Time> task = this.timeConstrainedEnabledCallback.getTask();
         this.executor.submit(task);
 
@@ -101,7 +73,7 @@ public final class HLACallbackManager {
     }
 
     public Future<HLAinteger64Time> invokeTimeRegulationCallback(HLAinteger64Interval lookaheadInLogicalTime) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        this.timeRegulationEnabledCallback = new CallbackImpl<>(1);
+        this.timeRegulationEnabledCallback = new FederateCallbackImpl<>(1);
         FutureTask<HLAinteger64Time> task = this.timeRegulationEnabledCallback.getTask();
         this.executor.submit(task);
 
@@ -124,7 +96,7 @@ public final class HLACallbackManager {
     }
 
     public Future<HLAinteger64Time> invokeTimeAdvanceGrantCallback(HLAinteger64Time nextLogicalTime) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        this.timeAdvanceGrantCallback = new CallbackImpl<>(1);
+        this.timeAdvanceGrantCallback = new FederateCallbackImpl<>(1);
         FutureTask<HLAinteger64Time> task = this.timeAdvanceGrantCallback.getTask();
         this.executor.submit(task);
 

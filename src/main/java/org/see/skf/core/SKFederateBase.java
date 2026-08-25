@@ -35,7 +35,7 @@ import hla.rti1516_2025.exceptions.*;
 import org.see.skf.internal.*;
 import org.see.skf.internal.executive.ExecutiveStateManager;
 import org.see.skf.internal.runtime.*;
-import org.see.skf.internal.callbacks.HLACallbackManager;
+import org.see.skf.internal.callbacks.FederateCallbackManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,7 +79,7 @@ public abstract class SKFederateBase implements SKFederate {
         this.rtiConfiguration = RtiConfiguration.createConfiguration().withRtiAddress(config.rtiAddress());
 
         this.executor = Executors.newFixedThreadPool(config.maxThreads());
-        HLACallbackManager callbackManager = new HLACallbackManager(this.executor);
+        FederateCallbackManager callbackManager = new FederateCallbackManager(this.executor);
         FederateMapping federateMapping = new FederateMapping();
 
         CoderManager coderManager = new CoderManager();
@@ -135,7 +135,7 @@ public abstract class SKFederateBase implements SKFederate {
         } catch (AlreadyConnected ignore) {
             logger.warn("<{}> is already connected to the RTI.", this.federateName);
         } catch (UnsupportedCallbackModel | CallNotAllowedFromWithinCallback |
-               RTIinternalError e) {
+                 RTIinternalError e) {
             throw new FederateStartupException("Failed to establish connection to the RTI hosted at <" + rtiAddress + ">.", e);
         }
     }
@@ -188,22 +188,40 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
-    public final void shutdownExecution() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    public final void shutdownExecution() {
+        this.executiveStateManager.changeExecutionMode(ExecutionMode.EXEC_MODE_SHUTDOWN);
 
-        try {
-            rtiAmbassador.disableTimeRegulation();
-            rtiAmbassador.disableTimeConstrained();
-            rtiAmbassador.resignFederationExecution(ResignAction.DELETE_OBJECTS_THEN_DIVEST);
-        } catch (OwnershipAcquisitionPending | FederateOwnsAttributes | InvalidResignAction e) {
-            throw new FederateShutdownException("Federate shutdown attempt was interrupted by ongoing processes that are yet to be completed.", e);
-        } catch (CallNotAllowedFromWithinCallback | TimeConstrainedIsNotEnabled | TimeRegulationIsNotEnabled ignore) {
-            // The chances of this being thrown is less because we enable time regulation/constraint during the time management setup phase.
-            // However, if this method is prematurely called then this catch block will be triggered, but it's nothing serious, so it can be safely ignored.
-            // Also like in joinFederationExecution(), the CallNotAllowedFromWithinCallback exception is not a problem because the framework hides callbacks from the user.
-        }
+        FutureTask<Void> task = new FutureTask<>(() -> {
+            synchronized (this.executiveStateManager) {
+                while (this.executiveStateManager.getLocalExecutionMode() != ExecutionMode.EXEC_MODE_SHUTDOWN) {
+                    try {
+                        this.executiveStateManager.wait();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new FederateShutdownException("Graceful termination of federate failed.", e);
+                    }
+                }
+            }
 
-        this.executor.shutdown();
-        logger.info("Federate terminated.");
+            try {
+                rtiAmbassador.disableTimeRegulation();
+                rtiAmbassador.disableTimeConstrained();
+                rtiAmbassador.resignFederationExecution(ResignAction.DELETE_OBJECTS_THEN_DIVEST);
+            } catch (OwnershipAcquisitionPending | FederateOwnsAttributes | InvalidResignAction e) {
+                throw new FederateShutdownException("Federate shutdown attempt was interrupted by ongoing processes that are yet to be completed.", e);
+            } catch (CallNotAllowedFromWithinCallback | TimeConstrainedIsNotEnabled | TimeRegulationIsNotEnabled ignore) {
+                // The chances of this being thrown is less because we enable time regulation/constraint during the time management setup phase.
+                // However, if this method is prematurely called then this catch block will be triggered, but it's nothing serious, so it can be safely ignored.
+                // Also like in joinFederationExecution(), the CallNotAllowedFromWithinCallback exception is not a problem because the framework hides callbacks from the user.
+            }
+
+            this.executor.shutdown();
+            logger.info("Federate terminated.");
+
+            return null;
+        });
+
+        this.executor.submit(task);
     }
 
     @Override
@@ -225,15 +243,14 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
-    public final String createObjectInstance(Object objectInstance) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        // return this.objectManager.registerObjectInstance(objectInstance);
+    public final String createObjectInstance(String objectClassName, Object objectInstance) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        // TODO
         return null;
     }
 
     @Override
-    public final Future<Void> createObjectInstance(Object objectInstance, String name) {
-        // return this.objectManager.registerObjectInstance(objectInstance, name);
-        return null;
+    public final Future<Void> createObjectInstance(String objectClassName, String name, Object objectInstance) {
+        return this.objectManager.createObjectInstance(objectClassName, name, objectInstance);
     }
 
     @Override
@@ -242,8 +259,13 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     // TODO
-    public final void destroyObjectInstance(Object objectInstance) {
+    public final void destroyObjectInstance(Object objectInstance) throws FederateNotExecutionMember, RestoreInProgress, DeletePrivilegeNotHeld, NotConnected, RTIinternalError, SaveInProgress {
+        this.objectManager.destroyObjectInstance(objectInstance);
+    }
 
+    @Override
+    public final boolean isRemoteObjectInstanceDiscovered(String name) {
+        return this.objectManager.isRemoteObjectInstanceDiscovered(name);
     }
 
     @Override
@@ -322,12 +344,12 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
-    public final void achieveSynchronizationPoint(String label) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    public final void achieveSyncPoint(String label) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         this.syncPointManager.achieveSyncPoint(label);
     }
 
     @Override
-    public final void achieveSynchronizationPoint(String label, boolean success) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    public final void achieveSyncPoint(String label, boolean success) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         this.syncPointManager.achieveSyncPoint(label, success);
     }
 
@@ -403,5 +425,5 @@ public abstract class SKFederateBase implements SKFederate {
 
     public abstract void processRunJobs() throws RTIexception;
 
-    public abstract void processShutdownJobs() throws RTIexception;
+    public abstract void processShutdownJobs();
 }
