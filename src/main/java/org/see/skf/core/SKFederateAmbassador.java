@@ -61,8 +61,8 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
     // relay updates via the reflectAttributeValues callback before this thread is done creating the internal object instance representations for the federate.
     @Override
     public void discoverObjectInstance(ObjectInstanceHandle objectInstance, ObjectClassHandle objectClass, String objectInstanceName, FederateHandle producingFederate) throws FederateInternalError {
-        this.federateMapping.get(producingFederate);
-        this.objectManager.remoteObjectInstanceDiscovered(objectInstance, objectInstanceName, objectClass);
+        String producingFederateName = this.federateMapping.get(producingFederate);
+        this.objectManager.remoteObjectInstanceDiscovered(objectInstance, objectInstanceName, objectClass, producingFederateName);
     }
 
     @Override
@@ -82,19 +82,16 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
     @Override
     public void reflectAttributeValues(ObjectInstanceHandle objectInstance, AttributeHandleValueMap attributeValues, byte[] userSuppliedTag, TransportationTypeHandle transportationType, FederateHandle producingFederate, RegionHandleSet optionalSentRegions) throws FederateInternalError {
-        this.executor.submit(() -> reflectAttributeValueCallback(objectInstance, attributeValues, producingFederate));
+        this.executor.submit(() -> reflectAttributeValueCallback(objectInstance, attributeValues));
     }
 
     @Override
     public void reflectAttributeValues(ObjectInstanceHandle objectInstance, AttributeHandleValueMap attributeValues, byte[] userSuppliedTag, TransportationTypeHandle transportationType, FederateHandle producingFederate, RegionHandleSet optionalSentRegions, LogicalTime<?, ?> time, OrderType sentOrderType, OrderType receivedOrderType, MessageRetractionHandle optionalRetraction) throws FederateInternalError {
-        this.executor.submit(() -> reflectAttributeValueCallback(objectInstance, attributeValues, producingFederate));
+        this.executor.submit(() -> reflectAttributeValueCallback(objectInstance, attributeValues));
     }
 
-    private void reflectAttributeValueCallback(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues, FederateHandle producingFederate) {
-        this.executor.submit(() -> {
-            String producingFederateName = this.federateMapping.get(producingFederate);
-            this.objectManager.remoteObjectInstanceUpdated(instanceHandle, attributeValues, producingFederateName);
-        });
+    private void reflectAttributeValueCallback(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues) {
+        this.executor.submit(() -> this.objectManager.remoteObjectInstanceUpdated(instanceHandle, attributeValues));
     }
 
     @Override

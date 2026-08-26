@@ -2,7 +2,7 @@ package org.see.skf.internal.runtime;
 
 import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.*;
-import org.see.skf.core.ObjectInstanceListener;
+import org.see.skf.core.RemoteObjectInstanceListener;
 import org.see.skf.internal.HLAUtilityFactory;
 import org.see.skf.internal.callbacks.FederateCallbackManager;
 import org.see.skf.internal.callbacks.NameReservationException;
@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.function.Predicate;
@@ -31,7 +33,7 @@ public final class HLAObjectManager2 {
 
     private final Set<ObjectInstance> objectInstances;
 
-    private final Set<ObjectInstanceListener> objectInstanceListeners;
+    private final Map<String, Set<RemoteObjectInstanceListener>> remoteObjectInstanceListeners;
 
     private final Set<ObjectInstanceHandle> instancesPendingInitialValues;
 
@@ -44,7 +46,7 @@ public final class HLAObjectManager2 {
 
         this.objectClasses = new CopyOnWriteArraySet<>();
         this.objectInstances = new CopyOnWriteArraySet<>();
-        this.objectInstanceListeners = new CopyOnWriteArraySet<>();
+        this.remoteObjectInstanceListeners = new ConcurrentHashMap<>();
         this.instancesPendingInitialValues = new CopyOnWriteArraySet<>();
     }
 
@@ -147,7 +149,7 @@ public final class HLAObjectManager2 {
             ObjectInstanceHandle instanceHandle = rtiAmbassador.registerObjectInstance(objectClass.getHandle(), instanceName);
             ObjectInstance objectInstance = new ObjectInstance(instanceName, instanceHandle, objectClass, proxy);
             this.objectInstances.add(objectInstance);
-            logger.info("Created object instance <{}> of object class <{}>.", instanceName, objectClassName);
+            logger.info("Created named object instance <{}> of object class <{}>.", instanceName, objectClassName);
 
             return null;
         });
@@ -168,7 +170,7 @@ public final class HLAObjectManager2 {
         }
     }
 
-    void createObjectInstance(String objectClassName, Object proxy) {
+    public String createObjectInstance(String objectClassName, Object proxy) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         if (objectClassName == null || proxy == null) {
             throw new IllegalArgumentException("Cannot create HLA object instance because one or more NULL references were passed as argument(s).");
         }
@@ -177,11 +179,37 @@ public final class HLAObjectManager2 {
         if (objectClass == null) {
             throw new IllegalArgumentException("Cannot create the object instance because its object class <" + objectClassName + "> has not been declared yet.");
         }
+
+        ObjectInstanceHandle instanceHandle = rtiAmbassador.registerObjectInstance(objectClass.getHandle());
+        String assignedName;
+        try {
+            assignedName = rtiAmbassador.getObjectInstanceName(instanceHandle);
+        } catch (ObjectInstanceNotKnown e) {
+            throw new ObjectInstanceCreationException("Failed to create object instance of the class <" + objectClassName + "> because its assigned name could not be retrieved.");
+        }
+
+        ObjectInstance objectInstance = new ObjectInstance(assignedName, instanceHandle, objectClass, proxy);
+        this.objectInstances.add(objectInstance);
+
+        logger.info("Object instance <{}> of the object class <{}> was created.", assignedName, objectClassName);
+        return assignedName;
     }
 
-    // TODO
-    void updateObjectInstance(Object proxy, String... attributeNames) {
+    public void updateObjectInstance(Object proxy, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
+        if (proxy == null) {
+            throw new IllegalArgumentException("The object instance reference passed in as argument cannot be NULL.");
+        }
 
+        if (attributeNames == null || attributeNames.length < 1) {
+            throw new IllegalArgumentException("One or more attributes are required to be passed in as argument for the object instance updates to be sent.");
+        }
+
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.proxy.equals(proxy));
+        if (objectInstance == null) {
+            throw new IllegalArgumentException("The provided object is not associated with any known object instances that were previously created.");
+        }
+
+        objectInstance.objectClass.provideUpdate(objectInstance.handle, objectInstance.proxy, attributeNames);
     }
 
     public void destroyObjectInstance(Object proxy) throws FederateNotExecutionMember, RestoreInProgress, DeletePrivilegeNotHeld, NotConnected, RTIinternalError, SaveInProgress {
@@ -205,7 +233,7 @@ public final class HLAObjectManager2 {
         }
     }
 
-    public void remoteObjectInstanceDiscovered(ObjectInstanceHandle instanceHandle, String instanceName, ObjectClassHandle classHandle) {
+    public void remoteObjectInstanceDiscovered(ObjectInstanceHandle instanceHandle, String instanceName, ObjectClassHandle classHandle, String producingFederateName) {
         HLAObjectClass2 objectClass = getObjectClass(objClass -> objClass.getHandle().equals(classHandle));
 
         if (objectClass != null) {
@@ -213,6 +241,8 @@ public final class HLAObjectManager2 {
 
             this.objectInstances.add(instance);
             this.instancesPendingInitialValues.add(instanceHandle);
+
+            notifyRemoteObjectInstanceDiscovered(instanceName, producingFederateName);
 
             try {
                 sendAttributeValueUpdateRequest(instanceName, instanceHandle, objectClass.getSubscribedAttributes());
@@ -225,7 +255,7 @@ public final class HLAObjectManager2 {
         }
     }
 
-    public void remoteObjectInstanceUpdated(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues, String producingFederateName) {
+    public void remoteObjectInstanceUpdated(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues) {
         ObjectInstance objectInstance = getObjectInstance(instance -> instance.handle.equals(instanceHandle));
 
         if (objectInstance != null) {
@@ -233,7 +263,8 @@ public final class HLAObjectManager2 {
             objectClass.reflectRemoteUpdate(objectInstance, attributeValues);
 
             if (this.instancesPendingInitialValues.contains(instanceHandle)) {
-                this.objectInstanceListeners.forEach(listener -> listener.created(objectInstance.name, objectInstance.proxy, producingFederateName));
+                notifyRemoteObjectInstanceInitialized(objectInstance.name, objectInstance.proxy);
+                this.instancesPendingInitialValues.remove(instanceHandle);
             }
         } else {
             logger.error("Discarded update received for object instance with the handle <{}> as no corresponding serialization information for it is known to the federate.", instanceHandle);
@@ -245,7 +276,31 @@ public final class HLAObjectManager2 {
 
         if (objectInstance != null) {
             this.objectInstances.remove(objectInstance);
-            this.objectInstanceListeners.forEach(listener -> listener.destroyed(objectInstance.name, producingFederateName));
+            notifyRemoteObjectInstanceDestroyed(objectInstance.name, producingFederateName);
+        }
+    }
+
+    private void notifyRemoteObjectInstanceDiscovered(String name, String producingFederateName) {
+        Set<RemoteObjectInstanceListener> listeners = this.remoteObjectInstanceListeners.get(name);
+
+        if (!listeners.isEmpty()) {
+            listeners.forEach(listener -> listener.discovered(producingFederateName));
+        }
+    }
+
+    private void notifyRemoteObjectInstanceInitialized(String name, Object proxy) {
+        Set<RemoteObjectInstanceListener> listeners = this.remoteObjectInstanceListeners.get(name);
+
+        if (!listeners.isEmpty()) {
+            listeners.forEach(listener -> listener.initialized(proxy));
+        }
+    }
+
+    private void notifyRemoteObjectInstanceDestroyed(String name, String producingFederateName) {
+        Set<RemoteObjectInstanceListener> listeners = this.remoteObjectInstanceListeners.get(name);
+
+        if (!listeners.isEmpty()) {
+            listeners.forEach(listener -> listener.destroyed(producingFederateName));
         }
     }
 
@@ -272,32 +327,59 @@ public final class HLAObjectManager2 {
         }
     }
 
+    public void provideObjectInstanceUpdate(ObjectInstanceHandle instanceHandle, AttributeHandleSet attributes) {
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.handle.equals(instanceHandle));
+
+        if (objectInstance != null) {
+            HLAObjectClass2 objectClass = objectInstance.objectClass;
+
+            try {
+                objectClass.provideUpdate(instanceHandle, objectInstance.proxy, attributes);
+            } catch (RTIexception e) {
+                logger.error("Failed to dispatch updates for object instance <{}>.", objectInstance.name, e);
+            }
+        }
+    }
+
     public void requestRemoteObjectInstanceUpdates(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         ObjectInstance objectInstance = getObjectInstance(instance -> instance.name.equals(name));
 
         if (objectInstance != null) {
-            AttributeHandleSet set = objectInstance.objectClass.getAttributeHandlesAsSet(attributeNames);
+            AttributeHandleSet set = objectInstance.objectClass.getAttributeHandles(attributeNames);
             sendAttributeValueUpdateRequest(name, objectInstance.handle, set);
         } else {
             logger.warn("Cannot request the latest the values for the remote object instance <{}> because it has not been discovered by this federate yet.", name);
         }
     }
 
-    // TODO
-    public void provideObjectInstanceUpdate(ObjectInstanceHandle instanceHandle, AttributeHandleSet attributes) {
+    public void addObjectInstanceListener(String objectInstanceName, RemoteObjectInstanceListener listener) {
+        if (objectInstanceName == null || listener == null) {
+            return;
+        }
 
+        this.remoteObjectInstanceListeners.computeIfAbsent(objectInstanceName, set -> new HashSet<>());
+        this.remoteObjectInstanceListeners.get(objectInstanceName).add(listener);
     }
 
-    public void addObjectInstanceListener(ObjectInstanceListener listener) {
-        this.objectInstanceListeners.add(listener);
-    }
+    public void removeObjectInstanceListener(RemoteObjectInstanceListener listener) {
+        for (Map.Entry<String, Set<RemoteObjectInstanceListener>> entry : this.remoteObjectInstanceListeners.entrySet()) {
+            String objectInstanceName = entry.getKey();
+            Set<RemoteObjectInstanceListener> listeners = entry.getValue();
 
-    public void removeObjectInstanceListener(ObjectInstanceListener listener) {
-        this.objectInstanceListeners.remove(listener);
+            if (listeners.contains(listener)) {
+                listeners.remove(listener);
+
+                if (listeners.isEmpty()) {
+                    this.remoteObjectInstanceListeners.remove(objectInstanceName);
+                }
+
+                break;
+            }
+        }
     }
 
     public void addPropertyChangeListener(Object proxy, PropertyChangeListener listener) {
-        ObjectInstance objectInstance = getObjectInstance(instance -> instance.proxy.equals(proxy));
+        ObjectInstance objectInstance = getObjectInstance(instance -> /* instance.proxy != null && */ instance.proxy.equals(proxy));
 
         if (objectInstance != null) {
             objectInstance.pcs.addPropertyChangeListener(listener);
@@ -345,6 +427,7 @@ public final class HLAObjectManager2 {
             this.handle = handle;
             this.objectClass = objectClass;
 
+            this.proxy = objectClass.createProxy();
             this.pcs = new PropertyChangeSupport(this);
         }
 
@@ -355,6 +438,10 @@ public final class HLAObjectManager2 {
             this.proxy = proxy;
 
             this.pcs = new PropertyChangeSupport(this);
+        }
+
+        String getName() {
+            return this.name;
         }
 
         Object getProxy() {

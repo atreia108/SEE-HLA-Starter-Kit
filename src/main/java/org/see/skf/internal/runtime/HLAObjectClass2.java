@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 
 final class HLAObjectClass2 {
 
@@ -84,7 +85,7 @@ final class HLAObjectClass2 {
         this.attributes.clear();
 
         for (String attributeName : attributeNames) {
-            Attribute attribute = getAttribute(attributeName);
+            Attribute attribute = getAttribute(a -> a.name.equals(attributeName));
 
             if (attribute != null && !attribute.published.get()) {
                 attribute.published.set(true);
@@ -112,7 +113,7 @@ final class HLAObjectClass2 {
                 rtiAmbassador.unpublishObjectClass(this.handle);
             } else {
                 for (String attributeName : attributeNames) {
-                    Attribute attribute = getAttribute(attributeName);
+                    Attribute attribute = getAttribute(a -> a.name.equals(attributeName));
 
                     if (attribute != null && attribute.published.get()) {
                         attribute.published.set(false);
@@ -136,7 +137,7 @@ final class HLAObjectClass2 {
         this.attributes.clear();
 
         for (String attributeName : attributeNames) {
-            Attribute attribute = getAttribute(attributeName);
+            Attribute attribute = getAttribute(a -> a.name.equals(attributeName));
 
             if (attribute != null && !attribute.subscribed.get()) {
                 attribute.subscribed.set(true);
@@ -162,7 +163,7 @@ final class HLAObjectClass2 {
                 rtiAmbassador.unsubscribeObjectClass(this.handle);
             } else {
                 for (String attributeName : attributeNames) {
-                    Attribute attribute = getAttribute(attributeName);
+                    Attribute attribute = getAttribute(a -> a.name.equals(attributeName));
 
                     if (attribute != null && attribute.subscribed.get()) {
                         attribute.subscribed.set(false);
@@ -197,14 +198,42 @@ final class HLAObjectClass2 {
     }
 
     void provideUpdate(ObjectInstanceHandle instanceHandle, Object proxy, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
-        // TODO
+        this.attributeValues.clear();
+
+        for (String attributeName : attributeNames) {
+            Attribute attribute = getAttribute(a -> a.name.equals(attributeName));
+            if (attribute != null /* && attribute.published.get() */) {
+                Trait t = this.attributeToTrait.get(attribute);
+                byte[] encodedValue = t.encode(proxy);
+
+                this.attributeValues.put(attribute.handle, encodedValue);
+            }
+        }
 
         try {
-            rtiAmbassador.updateAttributeValues(instanceHandle, null, null);
-        } catch (AttributeNotDefined e) {
-            throw new RuntimeException(e);
-        } catch (ObjectInstanceNotKnown e) {
-            throw new RuntimeException(e);
+            rtiAmbassador.updateAttributeValues(instanceHandle, this.attributeValues, null);
+        } catch (AttributeNotDefined | ObjectInstanceNotKnown e) {
+            throw new ObjectInstanceUpdateException("Could not update object instance <" + proxy + ">.", e);
+        }
+    }
+
+    void provideUpdate(ObjectInstanceHandle instanceHandle, Object proxy, AttributeHandleSet requestedAttributes) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
+        this.attributeValues.clear();
+
+        for (AttributeHandle attributeHandle : requestedAttributes) {
+            Attribute attribute = getAttribute(a -> a.handle.equals(attributeHandle));
+            if (attribute != null) {
+                Trait t = this.attributeToTrait.get(attribute);
+                byte[] encodedValue = t.encode(proxy);
+
+                this.attributeValues.put(attribute.handle, encodedValue);
+            }
+        }
+
+        try {
+            rtiAmbassador.updateAttributeValues(instanceHandle, this.attributeValues, null);
+        } catch (AttributeNotDefined | ObjectInstanceNotKnown e) {
+            throw new ObjectInstanceUpdateException("Could not update object instance <" + proxy + ">.", e);
         }
     }
 
@@ -215,7 +244,7 @@ final class HLAObjectClass2 {
         }
 
         for (Map.Entry<AttributeHandle, byte[]> entry :  attributeValues.entrySet()) {
-            Attribute attribute = getAttribute(entry.getKey());
+            Attribute attribute = getAttribute(a -> a.handle.equals(entry.getKey()));
 
             if (attribute != null) {
                 Trait trait = this.attributeToTrait.get(attribute);
@@ -226,18 +255,10 @@ final class HLAObjectClass2 {
         }
     }
 
-    private Attribute getAttribute(String attributeName) {
+    private Attribute getAttribute(Predicate<Attribute> predicate) {
         return this.attributeToTrait.keySet()
                 .stream()
-                .filter(a -> a.name.equals(attributeName))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private Attribute getAttribute(AttributeHandle attributeHandle) {
-        return this.attributeToTrait.keySet()
-                .stream()
-                .filter(a -> a.handle.equals(attributeHandle))
+                .filter(predicate)
                 .findFirst()
                 .orElse(null);
     }
@@ -278,11 +299,11 @@ final class HLAObjectClass2 {
         return this.attributes;
     }
 
-    AttributeHandleSet getAttributeHandlesAsSet(String... attributeNames) {
+    AttributeHandleSet getAttributeHandles(String... attributeNames) {
         this.attributes.clear();
 
         for (String attributeName : attributeNames) {
-            Attribute attribute = getAttribute(attributeName);
+            Attribute attribute = getAttribute(a -> a.name.equals(attributeName));
 
             if (attribute != null) {
                 this.attributes.add(attribute.handle);

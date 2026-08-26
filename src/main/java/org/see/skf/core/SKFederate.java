@@ -29,15 +29,17 @@ public interface SKFederate {
 
     void updateObjectInstance(Object objectInstance, String... attributes) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress;
 
+    void destroyObjectInstance(Object objectInstance) throws FederateNotExecutionMember, RestoreInProgress, DeletePrivilegeNotHeld, NotConnected, RTIinternalError, SaveInProgress;
+
     boolean isRemoteObjectInstanceDiscovered(String name);
 
     Object queryRemoteObjectInstance(String name);
 
     void requestRemoteObjectInstanceUpdates(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress;
 
-    void addObjectInstanceListener(ObjectInstanceListener listener);
+    void addRemoteObjectInstanceListener(String objectInstanceName, RemoteObjectInstanceListener listener);
 
-    void removeObjectInstanceListener(ObjectInstanceListener listener);
+    void removeRemoteObjectInstanceListener(RemoteObjectInstanceListener listener);
 
     void addPropertyChangeListener(Object objectInstance, PropertyChangeListener listener);
 

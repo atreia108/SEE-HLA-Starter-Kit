@@ -28,7 +28,6 @@ public abstract class SEEFederate extends SKFederateBase {
         exec();
     }
 
-    // TODO - Enable MTR support.
     private void declareSRFOMExecutiveClasses() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         subscribeObjectClass(ExecutionConfiguration.class, "root_frame_name", "scenario_time_epoch", "current_execution_mode", "next_execution_mode", "next_mode_scenario_time", "next_mode_cte_time", "least_common_time_step");
         publishInteractionClass(ModeTransitionRequest.class);
@@ -38,7 +37,7 @@ public abstract class SEEFederate extends SKFederateBase {
 
     }
 
-    protected abstract void declareClasses() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, FederateServiceInvocationsAreBeingReportedViaMOM;
+    protected abstract void declareClasses() throws RTIexception;
 
-    protected abstract void declareObjectInstances();
+    protected abstract void declareObjectInstances() throws RTIexception;
 }

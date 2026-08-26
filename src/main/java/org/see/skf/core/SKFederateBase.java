@@ -107,20 +107,21 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     private void setupExCOListeners() {
-        addObjectInstanceListener(new ObjectInstanceListener() {
+        addRemoteObjectInstanceListener("ExCO", new RemoteObjectInstanceListener() {
             @Override
-            public void created(String name, Object instance, String producingFederateName) {
-                if (name.equals("ExCO")) {
-                    exCO = (ExecutionConfiguration) instance;
-                    exCODiscoveryLatch.countDown();
-                }
+            public void discovered(String producingFederateName) {
+                // Ignore.
             }
 
             @Override
-            public void destroyed(String name, String producingFederateName) {
-                if (name.equals("ExCO")) {
-                    executiveStateManager.changeExecutionMode(ExecutionMode.EXEC_MODE_SHUTDOWN);
-                }
+            public void initialized(Object instance) {
+                exCO = (ExecutionConfiguration) instance;
+                exCODiscoveryLatch.countDown();
+            }
+
+            @Override
+            public void destroyed(String producingFederateName) {
+                shutdownExecution();
             }
         });
     }
@@ -244,8 +245,7 @@ public abstract class SKFederateBase implements SKFederate {
 
     @Override
     public final String createObjectInstance(String objectClassName, Object objectInstance) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        // TODO
-        return null;
+        return this.objectManager.createObjectInstance(objectClassName, objectInstance);
     }
 
     @Override
@@ -255,10 +255,10 @@ public abstract class SKFederateBase implements SKFederate {
 
     @Override
     public final void updateObjectInstance(Object objectInstance, String... attributes) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
-        // TODO
+        this.objectManager.updateObjectInstance(objectInstance, attributes);
     }
 
-    // TODO
+    @Override
     public final void destroyObjectInstance(Object objectInstance) throws FederateNotExecutionMember, RestoreInProgress, DeletePrivilegeNotHeld, NotConnected, RTIinternalError, SaveInProgress {
         this.objectManager.destroyObjectInstance(objectInstance);
     }
@@ -279,12 +279,12 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
-    public void addObjectInstanceListener(ObjectInstanceListener listener) {
-        this.objectManager.addObjectInstanceListener(listener);
+    public final void addRemoteObjectInstanceListener(String objectInstanceName, RemoteObjectInstanceListener listener) {
+        this.objectManager.addObjectInstanceListener(objectInstanceName, listener);
     }
 
     @Override
-    public void removeObjectInstanceListener(ObjectInstanceListener listener) {
+    public final void removeRemoteObjectInstanceListener(RemoteObjectInstanceListener listener) {
         this.objectManager.removeObjectInstanceListener(listener);
     }
 
@@ -391,7 +391,7 @@ public abstract class SKFederateBase implements SKFederate {
     protected final void setupTimeManagement() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         try {
             logger.info("Awaiting discovery of ExCO object instance.");
-            exCODiscoveryLatch.await();
+            this.exCODiscoveryLatch.await();
 
             addPropertyChangeListener(this.exCO, new ExCOUpdateListener(this.executiveStateManager));
         } catch (InterruptedException e) {
