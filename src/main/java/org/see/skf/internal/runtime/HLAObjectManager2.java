@@ -136,9 +136,9 @@ public final class HLAObjectManager2 {
             throw new IllegalArgumentException("Cannot create the object instance <" + instanceName + "> because it already exists.");
         }
 
-        HLAObjectClass2 objectClass = getObjectClass(objClass -> objClass.getName().equals(objectClassName));
+        HLAObjectClass2 objectClass = getObjectClass(objClass -> objClass.getName().equals(objectClassName) && objClass.getProxyClass().equals(proxy.getClass()));
         if (objectClass == null) {
-            throw new IllegalArgumentException("Cannot create the object instance <" + instanceName + "> because its object class <" + objectClassName + "> has not been declared yet.");
+            throw new IllegalArgumentException("Cannot create the object instance <" + instanceName + "> because its object class <" + objectClassName + "> may not have been declared yet or the provided object instance class is not of the same type.");
         }
 
         FutureTask<Void> task = new FutureTask<>(() -> {

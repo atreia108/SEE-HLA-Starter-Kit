@@ -4,6 +4,7 @@ import hla.rti1516_2025.exceptions.*;
 import org.apache.commons.geometry.euclidean.threed.Vector3D;
 import org.see.baseplate.encoding.SpaceTimeCoordinateState;
 import org.see.baseplate.models.PhysicalEntity;
+import org.see.baseplate.models.PhysicalInterface;
 import org.see.baseplate.models.ReferenceFrame;
 import org.see.skf.core.SEEFederate;
 
@@ -23,14 +24,23 @@ public final class TestFederate extends SEEFederate {
     @Override
     protected void declareClasses() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         publishObjectClass(PhysicalEntity.class, "name", "type", "status", "state");
-        subscribeObjectClass(ReferenceFrame.class, "name", "parent_name", "state");
+        publishObjectClass(PhysicalInterface.class, "name", "parent_name");
     }
 
     @Override
     protected void declareObjectInstances() throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         this.spaceport = new PhysicalEntity();
         this.spaceport.setAcceleration(Vector3D.of(1, 1, 1));
-        createObjectInstance("HLAobjectRoot.PhysicalEntity", this.spaceport);
+        try {
+            createObjectInstance("HLAobjectRoot.PhysicalEntity", "brunel_spaceport", this.spaceport).get();
+            createObjectInstance("HLAobjectRoot.PhysicalInterface", "brunel_spaceport_arm", new PhysicalInterface()).get();
+            createObjectInstance("HLAobjectRoot.PhysicalInterface", "brunel_spaceport_leg_1", new PhysicalInterface()).get();
+            createObjectInstance("HLAobjectRoot.PhysicalInterface", "brunel_spaceport_leg_2", new PhysicalInterface()).get();
+            createObjectInstance("HLAobjectRoot.PhysicalInterface", "brunel_spaceport_leg_3", new PhysicalInterface()).get();
+            createObjectInstance("HLAobjectRoot.PhysicalInterface", "brunel_spaceport_leg_4", new PhysicalInterface()).get();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override

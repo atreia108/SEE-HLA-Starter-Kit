@@ -420,6 +420,7 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     protected final void exec() throws RTIexception {
+        logger.info("Beginning federate execution.");
         this.executiveStateManager.run();
     }
 
