@@ -1,18 +1,43 @@
-/*
+/*****************************************************************
+ SEE HLA Starter Kit Framework -  A Java framework for developing
+ SRFOM-compliant HLA Federates in the Simulation Exploration
+ Experience (SEE) program.
+
+ Copyright (c) 2014, 2026 SMASH Lab - University of Calabria
+ (Italy), Hridyanshu Aatreya - Modelling & Simulation Group (MSG)
+ at Brunel University of London (UK). All rights reserved.
+
+ GNU Lesser General Public License (GNU LGPL).
+
+ This library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 3.0 of the License, or (at your option) any later version.
+
+ This library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+
+ You should have received a copy of the GNU Lesser General Public
+ License along with this library.
+ If not, see http://http://www.gnu.org/licenses/
+ *****************************************************************/
+
 package org.see.skf.internal.runtime;
 
 import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.*;
-import org.see.skf.core.ObjectInstanceDestroyedListener;
-import org.see.skf.core.ObjectInstanceDiscoveredListener;
+import org.see.skf.core.RemoteObjectInstanceListener;
 import org.see.skf.internal.HLAUtilityFactory;
-import org.see.skf.internal.callbacks.HLACallbackManager;
+import org.see.skf.internal.callbacks.FederateCallbackManager;
 import org.see.skf.internal.callbacks.NameReservationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.beans.PropertyChangeListener;
-import java.util.HashMap;
+import java.beans.PropertyChangeSupport;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -25,93 +50,93 @@ public final class HLAObjectManager {
     private final RTIambassador rtiAmbassador;
 
     private final ExecutorService executor;
-    private final HLACallbackManager callbackManager;
+
+    private final FederateCallbackManager callbackManager;
+
     private final SKAnnotatedTypeParser parser;
 
     private final Set<HLAObjectClass> objectClasses;
-    private final Set<HLAObjectInstance> objectInstances;
-    private final Set<ObjectInstanceDiscoveredListener> objectInstanceDiscoveredListeners;
-    private final Set<ObjectInstanceDestroyedListener> objectInstanceDestroyedListeners;
 
-    private HLAObjectManager(Builder builder) {
+    private final Set<ObjectInstance> objectInstances;
+
+    private final Map<String, Set<RemoteObjectInstanceListener>> remoteObjectInstanceListeners;
+
+    private final Set<ObjectInstanceHandle> instancesPendingInitialValues;
+
+    public HLAObjectManager(FederateCallbackManager callbackManager, ExecutorService executor, SKAnnotatedTypeParser parser) {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
 
-        this.callbackManager = builder.callbackManager;
-        this.parser = builder.parser;
-        this.executor = builder.executor;
+        this.executor = executor;
+        this.callbackManager = callbackManager;
+        this.parser = parser;
 
-        this.objectInstances = new CopyOnWriteArraySet<>();
         this.objectClasses = new CopyOnWriteArraySet<>();
-        this.objectInstanceDiscoveredListeners = new CopyOnWriteArraySet<>();
-        this.objectInstanceDestroyedListeners = new CopyOnWriteArraySet<>();
+        this.objectInstances = new CopyOnWriteArraySet<>();
+        this.remoteObjectInstanceListeners = new ConcurrentHashMap<>();
+        this.instancesPendingInitialValues = new CopyOnWriteArraySet<>();
     }
 
-    private HLAObjectClass createHLAObjectClass(String name) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
+    private HLAObjectClass createObjectClass(Class<?> proxyClass) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
+        SKAnnotatedTypeParser.Metadata proxyMetadata = this.parser.parseObjectInstanceProxy(proxyClass);
+        String className = proxyMetadata.getFomClassName();
+
+        ObjectClassHandle handle;
         try {
-            ObjectClassHandle classHandle = rtiAmbassador.getObjectClassHandle(name);
-            AttributeHandleSet emptyAttributeHandleSet = rtiAmbassador.getAttributeHandleSetFactory().create();
-
-            return new HLAObjectClass(name, classHandle, emptyAttributeHandleSet);
+            handle = rtiAmbassador.getObjectClassHandle(className);
         } catch (NameNotFound e) {
-            throw new RtiHandleAcquisitionException("<" + name + "> is not a valid object class in the FOM for this federation execution.", e);
+            throw new IllegalArgumentException("The HLA object class <" + className + "> is not defined in any FOM modules currently being used in the federation execution.");
         }
+
+        return new HLAObjectClass.Builder()
+                .withHandle(handle)
+                .withMetadata(proxyMetadata)
+                .build();
     }
 
-    private Map<String, AttributeHandle> createAttributeToHandleMap(HLAObjectClass objectClass, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
-        Map<String, AttributeHandle> map = new HashMap<>();
-
-        for (String attributeName : attributeNames) {
-            try {
-                AttributeHandle attributeHandle = rtiAmbassador.getAttributeHandle(objectClass.getHandle(), attributeName);
-                map.put(attributeName, attributeHandle);
-            } catch (NameNotFound e) {
-                throw new RtiHandleAcquisitionException("<" + attributeName + "> is not a recognized attribute for the object class <" + objectClass.getName() + ">.");
-            } catch (InvalidObjectClassHandle e) {
-                throw new RtiHandleAcquisitionException(e);
-            }
+    public void publishObjectClass(Class<?> proxyClass, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
+        if (proxyClass == null) {
+            throw new IllegalArgumentException("Class representing how instances of the HLA object class should be interpreted by the federate cannot be NULL.");
+        } else if (attributeNames == null || attributeNames.length < 1) {
+            throw new IllegalArgumentException("At least one attribute has to be provided for the object class to be published.");
         }
 
-        return map;
-    }
-
-    public void publishObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
-        if (attributeNames.length < 1) {
-            throw new IllegalArgumentException("At least one attribute is required to publish the object class <" + name + ">.");
-        }
-
-        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(name));
-        if (objectClass == null) {
-            objectClass = createHLAObjectClass(name);
+        HLAObjectClass objectClass;
+        if ((objectClass = getObjectClass(objClass -> objClass.getProxyClass().equals(proxyClass))) == null) {
+            objectClass = createObjectClass(proxyClass);
             this.objectClasses.add(objectClass);
         }
 
-        Map<String, AttributeHandle> attributeToHandle = createAttributeToHandleMap(objectClass, attributeNames);
-        objectClass.publishAttributes(attributeToHandle);
+        objectClass.publishAttributes(attributeNames);
     }
 
-    // TODO
-    public void unpublishObjectClass(String name, String... attributes) {
-
+    public void unpublishObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, OwnershipAcquisitionPending, NotConnected, RTIinternalError, SaveInProgress {
+        HLAObjectClass objectClass;
+        if ((objectClass = getObjectClass(objClass -> objClass.getName().equals(name))) != null) {
+            objectClass.unpublishAttributes(attributeNames);
+        }
     }
 
-    public void subscribeObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
-        if (attributeNames.length < 1) {
-            throw new IllegalArgumentException("At least one attribute is required to subscribe the object class <" + name + ">.");
+    public void subscribeObjectClass(Class<?> proxyClass, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
+        if (proxyClass == null) {
+            throw new IllegalArgumentException("Class representing how instances of the HLA object class should be interpreted by the federate cannot be NULL.");
+        } else if (attributeNames == null || attributeNames.length < 1) {
+            throw new IllegalArgumentException("At least one attribute has to be provided for the object class to be subscribed.");
         }
 
-        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(name));
-        if (objectClass == null) {
-            objectClass = createHLAObjectClass(name);
+        HLAObjectClass objectClass;
+        if ((objectClass = getObjectClass(objClass -> objClass.getProxyClass().equals(proxyClass))) == null) {
+            objectClass = createObjectClass(proxyClass);
             this.objectClasses.add(objectClass);
         }
 
-        Map<String, AttributeHandle> attributeToHandle = createAttributeToHandleMap(objectClass, attributeNames);
-        objectClass.subscribeAttributes(attributeToHandle);
+        objectClass.subscribeAttributes(attributeNames);
     }
 
-    // TODO
-    public void unsubscribeObjectClass(String name, String... attributes) {
-
+    public void unsubscribeObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        HLAObjectClass objectClass;
+        if ((objectClass = getObjectClass(objClass -> objClass.getName().equals(name))) != null) {
+            objectClass.unsubscribeAttributes(attributeNames);
+        }
     }
 
     private HLAObjectClass getObjectClass(Predicate<HLAObjectClass> predicate) {
@@ -121,80 +146,36 @@ public final class HLAObjectManager {
                 .orElse(null);
     }
 
-    public String registerObjectInstance(Object object) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        if (object == null) {
-            throw new IllegalArgumentException("Cannot create HLA object instance with a NULL object.");
-        }
-
-        SKAnnotatedTypeParser.ParsedObjectMetadata objectMetadata = this.parser.parseObjectInstance(object);
-        String objectClassName = objectMetadata.getClassNameInFom();
-        Set<SKAnnotatedTypeParser.Trait> attributes = objectMetadata.getTraits();
-
-        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(objectClassName));
-        if (objectClass == null) {
-            throw new ObjectInstanceCreationException("Object class <" + objectClassName + "> is unknown. It may not have been previously published/subscribed by this federate.");
-        }
-
-        ObjectClassHandle objectClassHandle = objectClass.getHandle();
-        ObjectInstanceHandle instanceHandle = rtiAmbassador.registerObjectInstance(objectClassHandle);
-
-        String objectInstanceName;
-        try {
-            objectInstanceName = rtiAmbassador.getObjectInstanceName(instanceHandle);
-        } catch (ObjectInstanceNotKnown e) {
-            throw new ObjectInstanceCreationException("Name of newly-created HLA object instance with the handle <" + instanceHandle + "> could not be retrieved from RTI.", e);
-        }
-
-        HLAObjectInstance objectInstance = new HLAObjectInstance.Builder()
-                .withName(objectInstanceName)
-                .withObjectClass(objectClass)
-                .withHandle(instanceHandle)
-                .withAttributes(attributes)
-                .forObject(object)
-                .build();
-
-        this.objectInstances.add(objectInstance);
-        logger.info("HLA object instance <{}> created.", objectInstanceName);
-
-        return objectInstanceName;
+    private ObjectInstance getObjectInstance(Predicate<ObjectInstance> predicate) {
+        return this.objectInstances.stream()
+                .filter(predicate)
+                .findFirst()
+                .orElse(null);
     }
 
-    public Future<Void> registerObjectInstance(Object object, String name) {
-        if (object == null) {
-            throw new IllegalArgumentException("Cannot create an HLA object instance with a NULL object.");
+    public Future<Void> createObjectInstance(String objectClassName, String instanceName, Object proxy) {
+        if (objectClassName == null || instanceName == null || proxy == null) {
+            throw new IllegalArgumentException("Cannot create HLA object instance because one or more NULL references were passed as argument(s).");
+        }
+
+        if (getObjectInstance(instance -> instance.name.equals(instanceName)) != null) {
+            throw new IllegalArgumentException("Cannot create the object instance <" + instanceName + "> because it already exists.");
+        }
+
+        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(objectClassName) && objClass.getProxyClass().equals(proxy.getClass()));
+        if (objectClass == null) {
+            throw new IllegalArgumentException("Cannot create the object instance <" + instanceName + "> because its object class <" + objectClassName + "> may not have been declared yet or the provided object instance class is not of the same type.");
         }
 
         FutureTask<Void> task = new FutureTask<>(() -> {
-            if (getObjectInstance(objInstance -> objInstance.getName().equals(name) && objInstance.getInstance() != null) == null) {
-                SKAnnotatedTypeParser.ParsedObjectMetadata objectMetadata = this.parser.parseObjectInstance(object);
-                String objectClassName = objectMetadata.getClassNameInFom();
-                Set<SKAnnotatedTypeParser.Trait> attributes = objectMetadata.getTraits();
-
-                HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(objectClassName));
-                if (objectClass == null) {
-                    throw new ObjectInstanceCreationException("Object class <" + objectClassName + "> is unknown. It may not have been previously published/subscribed by this federate.");
-                }
-                ObjectClassHandle objectClassHandle = objectClass.getHandle();
-
-                if (!reserveName(name)) {
-                    throw new ObjectInstanceCreationException("Unable to register HLA object instance with the name <" + name + ">.");
-                }
-
-                ObjectInstanceHandle instanceHandle = rtiAmbassador.registerObjectInstance(objectClassHandle, name);
-
-                HLAObjectInstance objectInstance = new HLAObjectInstance.Builder()
-                        .withName(name)
-                        .withObjectClass(objectClass)
-                        .withHandle(instanceHandle)
-                        .withAttributes(attributes)
-                        .forObject(object)
-                        .build();
-
-                this.objectInstances.add(objectInstance);
-                logger.info("Object instance with assigned name <{}> created.", name);
-            } else {
-                logger.warn("Attempt made to create an HLA object instance with the name <{}> that already exists.", name);
+            if (!reserveName(instanceName)) {
+                throw new ObjectInstanceCreationException("Could not create the object instance <" + instanceName + "> because its name could not be reserved.");
             }
+
+            ObjectInstanceHandle instanceHandle = rtiAmbassador.registerObjectInstance(objectClass.getHandle(), instanceName);
+            ObjectInstance objectInstance = new ObjectInstance(instanceName, instanceHandle, objectClass, proxy);
+            this.objectInstances.add(objectInstance);
+            logger.info("Created named object instance <{}> of object class <{}>.", instanceName, objectClassName);
 
             return null;
         });
@@ -203,232 +184,302 @@ public final class HLAObjectManager {
         return task;
     }
 
-    public void updateAttributeValues(Object object, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, AttributeNotOwned {
-        if (attributeNames.length < 1) {
-            throw new IllegalArgumentException("At least one attribute is required to update an object instance.");
-        }
-
-        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getInstance() != null && objInstance.getInstance().equals(object));
-
-        if (objectInstance == null) {
-            throw new ObjectInstanceUpdateException("No HLA object instance is associated with the provided object <" + object + ">.");
-        }
-
-        AttributeHandleValueMap attributeHandleValueMap = rtiAmbassador.getAttributeHandleValueMapFactory().create(attributeNames.length);
-        objectInstance.updateAttributes(attributeHandleValueMap, attributeNames);
-    }
-
-    private HLAObjectInstance getObjectInstance(Predicate<HLAObjectInstance> predicate) {
-        return this.objectInstances.stream()
-                .filter(predicate)
-                .findFirst()
-                .orElse(null);
-    }
-
     private boolean reserveName(String name) throws FederateNotExecutionMember, RestoreInProgress, IllegalName, NotConnected, RTIinternalError, SaveInProgress {
-        if (name == null) {
-            throw new IllegalArgumentException("Cannot reserve a name that is NULL.");
-        }
-
         Future<Boolean> task = this.callbackManager.invokeNameReservationCallback(name);
         try {
-            return task.get();
-        } catch (InterruptedException e) {
+            return task.get(8L, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException e) {
             Thread.currentThread().interrupt();
-            throw new NameReservationException("Took too long for name reservation of the object instance <" + name + "> to be completed by the RTI.", e);
-        } catch (ExecutionException e) {
-            throw new NameReservationException("Unexpected exception was thrown while attempting to reserve the object instance name <" + name + ">.", e);
+            throw new NameReservationException("Could not reserve the object instance name <" + name + ">.", e);
+        }  catch (TimeoutException e) {
+            throw new NameReservationException("Could not reserve the object instance name <" + name + "> in time.", e);
         }
     }
 
-    public void remoteObjectInstanceDiscovered(ObjectInstanceHandle instanceHandle, String name, ObjectClassHandle classHandle, String producingFederateName) {
+    public String createObjectInstance(String objectClassName, Object proxy) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        if (objectClassName == null || proxy == null) {
+            throw new IllegalArgumentException("Cannot create HLA object instance because one or more NULL references were passed as argument(s).");
+        }
+
+        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(objectClassName));
+        if (objectClass == null) {
+            throw new IllegalArgumentException("Cannot create the object instance because its object class <" + objectClassName + "> has not been declared yet.");
+        }
+
+        ObjectInstanceHandle instanceHandle = rtiAmbassador.registerObjectInstance(objectClass.getHandle());
+        String assignedName;
+        try {
+            assignedName = rtiAmbassador.getObjectInstanceName(instanceHandle);
+        } catch (ObjectInstanceNotKnown e) {
+            throw new ObjectInstanceCreationException("Failed to create object instance of the class <" + objectClassName + "> because its assigned name could not be retrieved.");
+        }
+
+        ObjectInstance objectInstance = new ObjectInstance(assignedName, instanceHandle, objectClass, proxy);
+        this.objectInstances.add(objectInstance);
+
+        logger.info("Object instance <{}> of the object class <{}> was created.", assignedName, objectClassName);
+        return assignedName;
+    }
+
+    public void updateObjectInstance(Object proxy, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
+        if (proxy == null) {
+            throw new IllegalArgumentException("The object instance reference passed in as argument cannot be NULL.");
+        }
+
+        if (attributeNames == null || attributeNames.length < 1) {
+            throw new IllegalArgumentException("One or more attributes are required to be passed in as argument for the object instance updates to be sent.");
+        }
+
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.proxy.equals(proxy));
+        if (objectInstance == null) {
+            throw new IllegalArgumentException("The provided object is not associated with any known object instances that were previously created.");
+        }
+
+        objectInstance.objectClass.provideUpdate(objectInstance.handle, objectInstance.proxy, attributeNames);
+    }
+
+    public void destroyObjectInstance(Object proxy) throws FederateNotExecutionMember, RestoreInProgress, DeletePrivilegeNotHeld, NotConnected, RTIinternalError, SaveInProgress {
+        if (proxy == null) {
+            throw new IllegalArgumentException("Cannot find object instance to delete since the argument passed in is a NULL reference.");
+        }
+
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.proxy.equals(proxy));
+        if (objectInstance == null) {
+            logger.error("Failed to delete object instance <{}> because its associated proxy information was not found.", proxy);
+            return;
+        }
+
+        try {
+            rtiAmbassador.deleteObjectInstance(objectInstance.handle, null);
+            this.objectInstances.remove(objectInstance);
+
+            logger.info("Object instance <{}> was successfully destroyed.", objectInstance.name);
+        } catch (ObjectInstanceNotKnown e) {
+            logger.error("Failed to delete object instance <{}>. It may already have been previously deleted.", proxy, e);
+        }
+    }
+
+    public void remoteObjectInstanceDiscovered(ObjectInstanceHandle instanceHandle, String instanceName, ObjectClassHandle classHandle, String producingFederateName) {
         HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getHandle().equals(classHandle));
 
         if (objectClass != null) {
-            HLAObjectInstance objectInstance = new HLAObjectInstance.Builder()
-                    .withName(name)
-                    .withHandle(instanceHandle)
-                    .withObjectClass(objectClass)
-                    .build();
+            ObjectInstance instance = new ObjectInstance(instanceName, instanceHandle, objectClass);
 
-            this.objectInstances.add(objectInstance);
-            logger.debug("Discovered the object instance <{}>.", name);
+            this.objectInstances.add(instance);
+            this.instancesPendingInitialValues.add(instanceHandle);
 
-            this.objectInstanceDiscoveredListeners.forEach(listener -> listener.discovered(name));
+            notifyRemoteObjectInstanceDiscovered(instanceName, producingFederateName);
+
+            try {
+                sendAttributeValueUpdateRequest(instanceName, instanceHandle, objectClass.getSubscribedAttributes());
+            } catch (RTIexception e) {
+                logger.error("Failed to request latest attribute values for the newly-discovered object instance <{}>", instanceName);
+            }
+
+        } else {
+            logger.debug("Ignored newly-discovered object instance <{}> as no corresponding object class information for it is known.", instanceName);
         }
     }
 
-    public void remoteObjectInstanceUpdateReceived(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues) {
-        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getHandle().equals(instanceHandle));
+    public void remoteObjectInstanceUpdated(ObjectInstanceHandle instanceHandle, AttributeHandleValueMap attributeValues) {
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.handle.equals(instanceHandle));
 
         if (objectInstance != null) {
-            objectInstance.deserialize(attributeValues);
+            HLAObjectClass objectClass = objectInstance.objectClass;
+            objectClass.reflectRemoteUpdate(objectInstance, attributeValues);
+
+            if (this.instancesPendingInitialValues.contains(instanceHandle)) {
+                notifyRemoteObjectInstanceInitialized(objectInstance.name, objectInstance.proxy);
+                this.instancesPendingInitialValues.remove(instanceHandle);
+            }
         } else {
-            logger.warn("Updated values for the object instance with the handle <{}> could not be processed.", instanceHandle);
+            logger.error("Discarded update received for object instance with the handle <{}> as no corresponding serialization information for it is known to the federate.", instanceHandle);
         }
     }
 
-    private AttributeHandleValueMap getLatestInstanceAttributeValues(HLAObjectInstance objectInstance) {
-        AttributeHandleValueMap attributeHandleValueMap;
-        HLAObjectClass objectClass = objectInstance.getObjectClass();
-
-        try {
-            Future<AttributeHandleValueMap> task = this.callbackManager.invokeReflectAttributeValueCallback(objectInstance, objectClass.getSubscribedAttributeHandles());
-            attributeHandleValueMap = task.get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Took too long to receive the latest attribute information for the discovered object instance <" + objectInstance.getName() + ">", e);
-        } catch (ExecutionException e) {
-            throw new RuntimeException("Unexpected exception was thrown while waiting for the latest attribute information of the object instance <" + objectInstance.getName() + ">.", e);
-        }
-
-        return attributeHandleValueMap;
-    }
-
-    private void makeObjectInstanceTrackable(HLAObjectInstance objectInstance, Object object) {
-        if (objectInstance != null && object != null) {
-            SKAnnotatedTypeParser.ParsedObjectMetadata objectMetadata = this.parser.parseObjectInstance(object);
-            Set<SKAnnotatedTypeParser.Trait> traits = objectMetadata.getTraits();
-
-            objectInstance.makeTrackable(object, traits);
-        }
-    }
-
-    public void remoteObjectInstanceDestroyed(ObjectInstanceHandle instanceHandle) {
-        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getHandle().equals(instanceHandle));
+    public void remoteObjectInstanceDestroyed(ObjectInstanceHandle instanceHandle, String producingFederateName) {
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.handle.equals(instanceHandle));
 
         if (objectInstance != null) {
             this.objectInstances.remove(objectInstance);
-
-            String name = objectInstance.getName();
-            this.objectInstanceDestroyedListeners.forEach(listener -> listener.destroyed(name));
-            logger.info("The object instance <{}> was destroyed.", name);
+            notifyRemoteObjectInstanceDestroyed(objectInstance.name, producingFederateName);
         }
     }
 
-    public <T> Future<T> launchRemoteObjectInstanceQuery(T object, String name) {
-        FutureTask<T> operation = new FutureTask<>(() -> {
-            Predicate<HLAObjectInstance> predicate = objInstance -> objInstance.getName().equals(name);
-            HLAObjectInstance objectInstance = getObjectInstance(predicate);
+    private void notifyRemoteObjectInstanceDiscovered(String name, String producingFederateName) {
+        Set<RemoteObjectInstanceListener> listeners = this.remoteObjectInstanceListeners.get(name);
 
-            if (objectInstance != null && objectInstance.isTrackable() ) {
-                // Disallow swapping of the object assigned to HLAObjectInstance.instance field.
-                if (!objectInstance.getInstance().equals(object)) {
-                    throw new IllegalArgumentException("Data for the object instance <" + name + "> is already being written to another object than the one supplied as argument.");
-                } else {
-                    return object;
-                }
-            } else {
-                while (true) {
-                    if ((objectInstance = getObjectInstance(predicate)) != null) {
-                        break;
-                    }
-                }
-            }
-
-            makeObjectInstanceTrackable(objectInstance, object);
-            AttributeHandleValueMap attributeHandleValueMap = getLatestInstanceAttributeValues(objectInstance);
-            objectInstance.deserialize(attributeHandleValueMap);
-
-            return object;
-        });
-
-        this.executor.submit(operation);
-        return operation;
+        if (!listeners.isEmpty()) {
+            listeners.forEach(listener -> listener.discovered(producingFederateName));
+        }
     }
 
-    public Object queryObjectInstance(String name) {
-        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getName().equals(name) && objInstance.getInstance() != null);
+    private void notifyRemoteObjectInstanceInitialized(String name, Object proxy) {
+        Set<RemoteObjectInstanceListener> listeners = this.remoteObjectInstanceListeners.get(name);
+
+        if (!listeners.isEmpty()) {
+            listeners.forEach(listener -> listener.initialized(proxy));
+        }
+    }
+
+    private void notifyRemoteObjectInstanceDestroyed(String name, String producingFederateName) {
+        Set<RemoteObjectInstanceListener> listeners = this.remoteObjectInstanceListeners.get(name);
+
+        if (!listeners.isEmpty()) {
+            listeners.forEach(listener -> listener.destroyed(producingFederateName));
+        }
+    }
+
+    public boolean isRemoteObjectInstanceDiscovered(String name) {
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.name.equals(name));
+        return objectInstance != null && objectInstance.proxy != null;
+    }
+
+    public Object queryObjectInstance(String instanceName) {
+        for (ObjectInstance instance : this.objectInstances) {
+            if (instance.name.equals(instanceName)) {
+                return instance.proxy;
+            }
+        }
+
+        return null;
+    }
+
+    private void sendAttributeValueUpdateRequest(String name, ObjectInstanceHandle handle, AttributeHandleSet attributes) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        try {
+            rtiAmbassador.requestAttributeValueUpdate(handle, attributes, null);
+        } catch (AttributeNotDefined | ObjectInstanceNotKnown e) {
+            throw new RuntimeException("Failed to request the latest attribute values for the object instance <" + name + ">.", e);
+        }
+    }
+
+    public void provideObjectInstanceUpdate(ObjectInstanceHandle instanceHandle, AttributeHandleSet attributes) {
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.handle.equals(instanceHandle));
 
         if (objectInstance != null) {
-            return objectInstance.getInstance();
+            HLAObjectClass objectClass = objectInstance.objectClass;
+
+            try {
+                objectClass.provideUpdate(instanceHandle, objectInstance.proxy, attributes);
+            } catch (RTIexception e) {
+                logger.error("Failed to dispatch updates for object instance <{}>.", objectInstance.name, e);
+            }
+        }
+    }
+
+    public void requestRemoteObjectInstanceUpdates(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.name.equals(name));
+
+        if (objectInstance != null) {
+            AttributeHandleSet set = objectInstance.objectClass.getAttributeHandles(attributeNames);
+            sendAttributeValueUpdateRequest(name, objectInstance.handle, set);
         } else {
-            return null;
+            logger.warn("Cannot request the latest the values for the remote object instance <{}> because it has not been discovered by this federate yet.", name);
         }
     }
 
-    public void addObjectInstanceDiscoveredListener(ObjectInstanceDiscoveredListener listener) {
-        if (listener == null) {
+    public void addObjectInstanceListener(String objectInstanceName, RemoteObjectInstanceListener listener) {
+        if (objectInstanceName == null || listener == null) {
             return;
         }
 
-        this.objectInstanceDiscoveredListeners.add(listener);
+        this.remoteObjectInstanceListeners.computeIfAbsent(objectInstanceName, set -> new HashSet<>());
+        this.remoteObjectInstanceListeners.get(objectInstanceName).add(listener);
     }
 
-    public void removeObjectInstanceDiscoveredListener(ObjectInstanceDiscoveredListener listener) {
-        if (listener == null) {
-            return;
-        }
+    public void removeObjectInstanceListener(RemoteObjectInstanceListener listener) {
+        for (Map.Entry<String, Set<RemoteObjectInstanceListener>> entry : this.remoteObjectInstanceListeners.entrySet()) {
+            String objectInstanceName = entry.getKey();
+            Set<RemoteObjectInstanceListener> listeners = entry.getValue();
 
-        this.objectInstanceDiscoveredListeners.remove(listener);
-    }
+            if (listeners.contains(listener)) {
+                listeners.remove(listener);
 
-    public void addObjectInstanceDestroyedListener(ObjectInstanceDestroyedListener listener) {
-        if (listener == null) {
-            return;
-        }
+                if (listeners.isEmpty()) {
+                    this.remoteObjectInstanceListeners.remove(objectInstanceName);
+                }
 
-        this.objectInstanceDestroyedListeners.add(listener);
-    }
-
-    public void removeObjectInstanceDestroyedListener(ObjectInstanceDestroyedListener listener) {
-        if (listener == null) {
-            return;
-        }
-
-        this.objectInstanceDestroyedListeners.remove(listener);
-    }
-
-    public void addPropertyChangeListener(Object object, String propertyName, PropertyChangeListener listener) {
-        if (object == null) {
-            return;
-        }
-
-        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getInstance() != null && objInstance.getInstance().equals(object));
-        if (objectInstance != null) {
-            objectInstance.addPropertyChangeListener(propertyName, listener);
-        }
-    }
-
-    public void removePropertyChangeListener(Object object, String propertyName, PropertyChangeListener listener) {
-        if (object == null) {
-            return;
-        }
-
-        HLAObjectInstance objectInstance = getObjectInstance(objInstance -> objInstance.getInstance().equals(object));
-        if (objectInstance != null) {
-            objectInstance.removePropertyChangeListener(propertyName, listener);
-        }
-    }
-
-    public static final class Builder {
-
-        private HLACallbackManager callbackManager;
-        private SKAnnotatedTypeParser parser;
-        private ExecutorService executor;
-
-        public Builder callbackManager(HLACallbackManager callbackManager) {
-            this.callbackManager = callbackManager;
-            return this;
-        }
-
-        public Builder parser(SKAnnotatedTypeParser parser) {
-            this.parser = parser;
-            return this;
-        }
-
-        public Builder executor(ExecutorService executor) {
-            this.executor = executor;
-            return this;
-        }
-
-        public HLAObjectManager build() {
-            if (callbackManager == null || parser == null || executor == null) {
-                throw new IllegalStateException("One or more objects required to initialize HLAObjectManager are missing.");
+                break;
             }
+        }
+    }
 
-            return new HLAObjectManager(this);
+    public void addPropertyChangeListener(Object proxy, PropertyChangeListener listener) {
+        ObjectInstance objectInstance = getObjectInstance(instance -> /* instance.proxy != null && */ instance.proxy.equals(proxy));
+
+        if (objectInstance != null) {
+            objectInstance.pcs.addPropertyChangeListener(listener);
+        }
+    }
+
+    public void addPropertyChangeListener(Object proxy, String propertyName, PropertyChangeListener listener) {
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.proxy.equals(proxy));
+
+        if (objectInstance != null) {
+            objectInstance.pcs.addPropertyChangeListener(propertyName, listener);
+        }
+    }
+
+    public void removePropertyChangeListener(Object proxy, PropertyChangeListener listener) {
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.proxy.equals(proxy));
+
+        if (objectInstance != null) {
+            objectInstance.pcs.removePropertyChangeListener(listener);
+        }
+    }
+
+    public void removePropertyChangeListener(Object proxy, String propertyName, PropertyChangeListener listener) {
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.proxy.equals(proxy));
+
+        if (objectInstance != null) {
+            objectInstance.pcs.removePropertyChangeListener(propertyName, listener);
+        }
+    }
+
+    public static final class ObjectInstance {
+
+        private final HLAObjectClass objectClass;
+
+        private final String name;
+
+        private final ObjectInstanceHandle handle;
+
+        private Object proxy;
+
+        private final PropertyChangeSupport pcs;
+
+        private ObjectInstance(String name, ObjectInstanceHandle handle, HLAObjectClass objectClass) {
+            this.name = name;
+            this.handle = handle;
+            this.objectClass = objectClass;
+
+            this.proxy = objectClass.createProxy();
+            this.pcs = new PropertyChangeSupport(this);
+        }
+
+        private ObjectInstance(String name, ObjectInstanceHandle handle, HLAObjectClass objectClass, Object proxy) {
+            this.name = name;
+            this.handle = handle;
+            this.objectClass = objectClass;
+            this.proxy = proxy;
+
+            this.pcs = new PropertyChangeSupport(this);
+        }
+
+        String getName() {
+            return this.name;
+        }
+
+        Object getProxy() {
+            return this.proxy;
+        }
+
+        void setProxy(Object proxy) {
+            this.proxy = proxy;
+        }
+
+        void notifyAllListeners(String propertyName, Object oldValue, Object newValue) {
+            this.pcs.firePropertyChange(propertyName, oldValue, newValue);
         }
     }
 }
- */

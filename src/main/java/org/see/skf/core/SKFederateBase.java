@@ -59,7 +59,7 @@ public abstract class SKFederateBase implements SKFederate {
 
     private final ExecutorService executor;
     private final ExecutiveStateManager executiveStateManager;
-    private final HLAObjectManager2 objectManager;
+    private final HLAObjectManager objectManager;
     private final HLAInteractionManager interactionManager;
     private final SyncPointManager syncPointManager;
     private final TimeManager timeManager;
@@ -83,9 +83,9 @@ public abstract class SKFederateBase implements SKFederate {
         FederateMapping federateMapping = new FederateMapping();
 
         CoderManager coderManager = new CoderManager();
-        SKAnnotatedTypeParser2 parser = new SKAnnotatedTypeParser2(coderManager);
+        SKAnnotatedTypeParser parser = new SKAnnotatedTypeParser(coderManager);
 
-        this.objectManager = new HLAObjectManager2(callbackManager, this.executor, parser);
+        this.objectManager = new HLAObjectManager(callbackManager, this.executor, parser);
         this.interactionManager = new HLAInteractionManager(parser);
 
         this.syncPointManager = new SyncPointManager();
@@ -371,11 +371,6 @@ public abstract class SKFederateBase implements SKFederate {
     @Override
     public final String getType() {
         return this.federateType;
-    }
-
-    @Override
-    public Role getRole() {
-        return this.federateRole;
     }
 
     @Override

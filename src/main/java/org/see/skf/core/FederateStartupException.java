@@ -42,4 +42,5 @@ public final class FederateStartupException extends RuntimeException {
     FederateStartupException(Throwable cause) {
         super(cause);
     }
+
 }

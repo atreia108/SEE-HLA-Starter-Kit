@@ -30,7 +30,7 @@ import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAunicodeString;
 
-public class HLAunicodeStringCoder implements Coder<String> {
+public final class HLAunicodeStringCoder implements Coder<String> {
 
     private final HLAunicodeString stringType;
 

@@ -54,7 +54,7 @@ public class PhysicalInterface {
     }
 
     public String getName() {
-        return name;
+        return this.name;
     }
 
     public void setName(String name) {
@@ -62,7 +62,7 @@ public class PhysicalInterface {
     }
 
     public String getParentName() {
-        return parentName;
+        return this.parentName;
     }
 
     public void setParentName(String parentName) {
@@ -70,7 +70,7 @@ public class PhysicalInterface {
     }
 
     public Vector3D getPosition() {
-        return position;
+        return this.position;
     }
 
     public void setPosition(Vector3D position) {
@@ -78,7 +78,7 @@ public class PhysicalInterface {
     }
 
     public Quaternion getAttitude() {
-        return attitude;
+        return this.attitude;
     }
 
     public void setAttitude(Quaternion attitude) {

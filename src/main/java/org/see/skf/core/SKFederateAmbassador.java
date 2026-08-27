@@ -35,7 +35,7 @@ import org.see.skf.internal.InternalObjectBuilderException;
 import org.see.skf.internal.SyncPointManager;
 import org.see.skf.internal.runtime.HLAInteractionManager;
 import org.see.skf.internal.callbacks.FederateCallbackManager;
-import org.see.skf.internal.runtime.HLAObjectManager2;
+import org.see.skf.internal.runtime.HLAObjectManager;
 
 import java.util.concurrent.ExecutorService;
 
@@ -43,7 +43,7 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
     private final FederateMapping federateMapping;
     private final FederateCallbackManager callbackManager;
-    private final HLAObjectManager2 objectManager;
+    private final HLAObjectManager objectManager;
     private final HLAInteractionManager interactionManager;
     private final SyncPointManager syncPointManager;
     private final ExecutorService executor;
@@ -157,7 +157,7 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
 
         private FederateCallbackManager callbackManager;
 
-        private HLAObjectManager2 objectManager;
+        private HLAObjectManager objectManager;
 
         private HLAInteractionManager interactionManager;
 
@@ -175,7 +175,7 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
             return this;
         }
 
-        Builder objectManager(HLAObjectManager2 objectManager) {
+        Builder objectManager(HLAObjectManager objectManager) {
             this.objectManager = objectManager;
             return this;
         }

@@ -1,3 +1,29 @@
+/*****************************************************************
+ SEE HLA Starter Kit Framework -  A Java framework for developing
+ SRFOM-compliant HLA Federates in the Simulation Exploration
+ Experience (SEE) program.
+
+ Copyright (c) 2014, 2026 SMASH Lab - University of Calabria
+ (Italy), Hridyanshu Aatreya - Modelling & Simulation Group (MSG)
+ at Brunel University of London (UK). All rights reserved.
+
+ GNU Lesser General Public License (GNU LGPL).
+
+ This library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 3.0 of the License, or (at your option) any later version.
+
+ This library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+
+ You should have received a copy of the GNU Lesser General Public
+ License along with this library.
+ If not, see http://http://www.gnu.org/licenses/
+ *****************************************************************/
+
 package org.see.skf.internal.runtime;
 
 import org.see.skf.core.annotations.Attribute;
@@ -5,18 +31,12 @@ import org.see.skf.core.annotations.InteractionClass;
 import org.see.skf.core.annotations.ObjectClass;
 import org.see.skf.core.annotations.Parameter;
 import org.see.skf.encoding.Coder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.HashSet;
 import java.util.Set;
 
 public final class SKAnnotatedTypeParser {
-
-    private static final Logger logger = LoggerFactory.getLogger(SKAnnotatedTypeParser.class);
 
     private final CoderManager coderManager;
 
@@ -24,256 +44,139 @@ public final class SKAnnotatedTypeParser {
         this.coderManager = coderManager;
     }
 
-    public ParsedObjectMetadata parseObjectInstance(Object parseableObject) {
-        isNull(parseableObject);
-        return buildObjectInstanceStructure(parseableObject);
+    public Metadata parseObjectInstanceProxy(Class<?> proxyClass) {
+        isNull(proxyClass);
+        return buildObjectInstanceStructure(proxyClass);
     }
 
-    public ParsedObjectMetadata parseInteraction(Object parseableObject) {
-        isNull(parseableObject);
-        return buildInteractionStructure(parseableObject);
+    public Metadata parseInteractionProxy(Class<?> proxyClass) {
+        isNull(proxyClass);
+        return buildInteractionStructure(proxyClass);
     }
 
-    private void isNull(Object targetObject){
-        if (targetObject == null) {
-            throw new AnnotationParseException("Cannot parse the structure of an object that is NULL.");
+    private void isNull(Object proxy) {
+        if (proxy == null) {
+            throw new NullPointerException("NULL reference provided for parsing.");
         }
     }
 
-    private ParsedObjectMetadata buildObjectInstanceStructure(Object parseableObject){
-        Class<?> clazz = parseableObject.getClass();
-        ObjectClass annotation = isObjectClass(clazz);
-        String objectClassName = annotation.name();
-        ParsedObjectMetadata objectClassStructure = new ParsedObjectMetadata(parseableObject, objectClassName);
+    private void illegalMultiAnnotationCheck(Class<?> clazz) {
+        ObjectClass a1 = clazz.getAnnotation(ObjectClass.class);
+        InteractionClass a2 = clazz.getAnnotation(InteractionClass.class);
 
+        if (a1 != null && a2 != null) {
+           throw new AnnotationParseException(clazz + " uses both @ObjectClass and @InteractionClass annotations which is disallowed.");
+        }
+    }
+
+    private Metadata buildObjectInstanceStructure(Class<?> clazz) {
+        ObjectClass fomNameAnnotation = clazz.getAnnotation(ObjectClass.class);
+        if (fomNameAnnotation == null) {
+            throw new AnnotationParseException("No @ObjectClass annotation attached for <" + clazz.getName() + ">.");
+        }
+
+        Metadata metadata = new Metadata(clazz, fomNameAnnotation.name());
         while (clazz != Object.class && clazz.isAnnotationPresent(ObjectClass.class)) {
-            evalMultiAnnotation(clazz);
+            illegalMultiAnnotationCheck(clazz);
 
             for (Field field : clazz.getDeclaredFields()) {
                 Attribute attribute = field.getAnnotation(Attribute.class);
-                if (attribute != null) {
-                    Trait t = new Trait(field)
-                            .forObject(parseableObject)
-                            .forClass(clazz)
-                            .withName(attribute.name())
-                            .withCoder(attribute.coder());
 
-                    objectClassStructure.add(t, clazz);
+                if (attribute != null) {
+                    String attributeName = attribute.name();
+                    Class<? extends Coder<?>> coderClass = attribute.coder();
+                    CoderManager.CoderReflectionData coderData = this.coderManager.get(coderClass);
+
+                    Trait t = new Trait.Builder()
+                            .sourceClass(clazz)
+                            .field(field)
+                            .annotatedName(attributeName)
+                            .coderData(coderData)
+                            .build();
+
+                    metadata.add(t, clazz);
                 }
             }
 
             clazz = clazz.getSuperclass();
         }
 
-        return objectClassStructure;
+        return metadata;
     }
 
-    private ObjectClass isObjectClass(Class<?> clazz){
-        ObjectClass annotation = clazz.getAnnotation(ObjectClass.class);
-
-        if (annotation == null) {
-            throw new AnnotationParseException(clazz + " does not have an @ObjectClass annotation attached.");
+    private Metadata buildInteractionStructure(Class<?> clazz) {
+        InteractionClass fomNameAnnotation = clazz.getAnnotation(InteractionClass.class);
+        if (fomNameAnnotation == null) {
+            throw new AnnotationParseException("No @InteractionClass annotation attached for <" + clazz.getName() + ">.");
         }
 
-        return annotation;
-    }
-
-    private void evalMultiAnnotation(Class<?> clazz) {
-        ObjectClass annotationType1 = clazz.getAnnotation(ObjectClass.class);
-        InteractionClass annotationType2 = clazz.getAnnotation(InteractionClass.class);
-
-        if (annotationType1 != null && annotationType2 != null) {
-            throw new AnnotationParseException("Confusing attachment of both @ObjectClass and @InteractionClass annotations on <." + clazz + ">.");
-        }
-    }
-
-    private ParsedObjectMetadata buildInteractionStructure(Object parseableObject) {
-        Class<?> clazz = parseableObject.getClass();
-        InteractionClass annotation = isInteractionClass(parseableObject.getClass());
-        String interactionClassName = annotation.name();
-        ParsedObjectMetadata interactionClassStructure = new ParsedObjectMetadata(parseableObject, interactionClassName);
-
+        Metadata metadata = new Metadata(clazz, fomNameAnnotation.name());
         while (clazz != Object.class && clazz.isAnnotationPresent(InteractionClass.class)) {
-            evalMultiAnnotation(clazz);
+            illegalMultiAnnotationCheck(clazz);
 
             for (Field field : clazz.getDeclaredFields()) {
                 Parameter parameter = field.getAnnotation(Parameter.class);
-                if (parameter != null) {
-                    Trait t = new Trait(field)
-                            .forObject(parseableObject)
-                            .forClass(clazz)
-                            .withName(parameter.name())
-                            .withCoder(parameter.coder());
 
-                    interactionClassStructure.add(t, clazz);
+                if (parameter != null) {
+                    String parameterName = parameter.name();
+                    Class<? extends Coder<?>> coderClass = parameter.coder();
+                    CoderManager.CoderReflectionData coderData = this.coderManager.get(coderClass);
+
+                    Trait t = new Trait.Builder()
+                            .sourceClass(clazz)
+                            .field(field)
+                            .annotatedName(parameterName)
+                            .coderData(coderData)
+                            .build();
+
+                    metadata.add(t, clazz);
                 }
             }
 
             clazz = clazz.getSuperclass();
         }
 
-        return interactionClassStructure;
+        return metadata;
     }
 
-    private InteractionClass isInteractionClass(Class<?> clazz){
-        InteractionClass annotation = clazz.getAnnotation(InteractionClass.class);
+    public static final class Metadata {
 
-        if (annotation == null) {
-            throw new AnnotationParseException("The class " + clazz + " does not have an @InteractionClass annotation attached.");
-        }
+        private final Class<?> proxyClass;
 
-        return annotation;
-    }
+        private final String fomClassName;
 
-    public final class ParsedObjectMetadata {
-
-        private final Object targetObject;
-
-        // Name in the HLA FOM such as "HLAobjectRoot.PhysicalEntity" or "HLAinteractionRoot.ModeTransitionRequest".
-        private final String classNameInFom;
-
-        // A trait refers to an attribute if this class is an HLA object class, or a parameter if this is an HLA interaction class.
         private final Set<Trait> traits;
 
-        private ParsedObjectMetadata(Object targetObject, String classNameInFom) {
-            this.targetObject = targetObject;
-            this.classNameInFom = classNameInFom;
-
+        private Metadata(Class<?> proxyClass, String fomClassName) {
+            this.proxyClass = proxyClass;
+            this.fomClassName = fomClassName;
             this.traits = new HashSet<>();
         }
 
-        private void add(Trait trait, Class<?> clazz) {
-            String traitName = trait.getName();
-            if (traitExists(traitName)) {
-                throw new AnnotationParseException("<" + clazz + " has a duplication definition of <" + traitName + "> which is already defined by a parent class.");
+        private void add(Trait trait, Class<?> forClass) {
+            String name = trait.getAssignedFieldName();
+
+            if (traitExists(name)) {
+                throw new AnnotationParseException("The member <" + name + "> is duplicated in the hierarchy of the class <" + forClass.getName() + ">.");
             }
 
             this.traits.add(trait);
         }
 
         private boolean traitExists(String name) {
-            Trait t = this.traits.stream().filter(trait -> trait.getName().equals(name)).findFirst().orElse(null);
-            return t != null;
+            return this.traits.stream().anyMatch(trait -> trait.getAssignedFieldName().equals(name));
         }
 
-        public Object getTargetObject() {
-            return this.targetObject;
+        public Class<?> getProxyClass(){
+            return this.proxyClass;
         }
 
-        public String getClassNameInFom() {
-            return this.classNameInFom;
+        public String getFomClassName() {
+            return this.fomClassName;
         }
 
         public Set<Trait> getTraits() {
             return this.traits;
-        }
-    }
-
-    public final class Trait {
-
-        private final Field field;
-
-        private String name;
-
-        private Object targetObject;
-
-        private Method getter;
-
-        private Method setter;
-
-        private Coder<?> coder;
-
-        private Method encode;
-
-        private Method decode;
-
-        Trait(Field field) {
-            this.field = field;
-        }
-
-        private void retrieveAccessors(Class<?> clazz) {
-            String fieldName = this.field.getName();
-            Class<?> fieldType = this.field.getType();
-            String capitalizedFieldName = capitalize(fieldName);
-
-            String getterName = "get" + capitalizedFieldName;
-            String setterName = "set" + capitalizedFieldName;
-
-            try {
-                Method getterMethod = clazz.getDeclaredMethod(getterName);
-                Method setterMethod = clazz.getDeclaredMethod(setterName, fieldType);
-
-                this.getter = getterMethod;
-                this.setter = setterMethod;
-            } catch (NoSuchMethodException e) {
-                throw new AnnotationParseException("The field <" + fieldName + "> either lacks one or more accessor (getter/setter) methods or these methods do not operate with the field's type <" + fieldType + ">.", e);
-            }
-        }
-
-        private String capitalize(String word) {
-            return word.substring(0, 1).toUpperCase() + word.substring(1);
-        }
-
-        private Trait withName(String name) {
-            this.name = name;
-            return this;
-        }
-
-        private Trait forObject(Object targetObject) {
-            this.targetObject = targetObject;
-            return this;
-        }
-
-        private Trait forClass(Class<?> clazz) {
-            retrieveAccessors(clazz);
-            return this;
-        }
-
-        private Trait withCoder(Class<? extends Coder<?>> clazz) {
-            CoderManager.CoderReflectionData coderReflectionData = coderManager.get(clazz);
-
-            Class<?> fieldType = field.getType();
-            Class<?> genericType = coderReflectionData.genericType();
-
-            if (!fieldType.equals(genericType)) {
-                String fieldName = field.getName();
-                throw new AnnotationParseException("Field <" + fieldName + "> expected a coder for type <" + fieldType + "> but got <" + genericType + "> instead.");
-            }
-
-            this.coder = coderReflectionData.coder();
-            this.encode = coderReflectionData.encodeMethod();
-            this.decode = coderReflectionData.decodeMethod();
-
-            return this;
-        }
-
-        public String getName() {
-            return this.name;
-        }
-
-        byte[] encode() {
-            try {
-                Object currentValue = getter.invoke(targetObject);
-                if (currentValue == null) {
-                    logger.warn("The field <{}> has a NULL value and is liable to cause an exception during serialization.", field.getName());
-                }
-
-                return (byte[]) encode.invoke(coder, currentValue);
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new SerializationException("Values could not be encoded for <" + this.name + ">. Ensure that the field has been properly initialized.", e);
-            }
-        }
-
-        Object[] decode(byte[] data) {
-            try {
-                Object oldValue = getter.invoke(targetObject);
-                Object newValue = decode.invoke(coder, data);
-                setter.invoke(targetObject, newValue);
-
-                return new Object[] { oldValue, newValue };
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new SerializationException("Values could not be decoded for <" + this.name + ">.", e);
-            }
         }
     }
 }

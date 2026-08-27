@@ -24,16 +24,29 @@
  If not, see http://http://www.gnu.org/licenses/
  *****************************************************************/
 
-package org.see.skf.internal.runtime;
+package org.see.skf.encoding;
 
-final class CoderInstantiationException extends RuntimeException {
+import hla.rti1516_2025.encoding.DecoderException;
+import hla.rti1516_2025.encoding.EncoderFactory;
+import hla.rti1516_2025.encoding.HLAASCIIchar;
 
-  CoderInstantiationException(String message) {
-    super(message);
-  }
+public final class HLAASCIIcharCoder implements Coder<Byte> {
 
-  CoderInstantiationException(String message, Throwable cause) {
-    super(message, cause);
-  }
+    private final HLAASCIIchar charType;
 
+    public HLAASCIIcharCoder(EncoderFactory encoderFactory) {
+        this.charType = encoderFactory.createHLAASCIIchar();
+    }
+
+    @Override
+    public Byte decode(byte[] buffer) throws DecoderException {
+        this.charType.decode(buffer);
+        return this.charType.getValue();
+    }
+
+    @Override
+    public byte[] encode(Byte element) {
+        this.charType.setValue(element);
+        return this.charType.toByteArray();
+    }
 }

@@ -1,3 +1,29 @@
+/*****************************************************************
+ SEE HLA Starter Kit Framework -  A Java framework for developing
+ SRFOM-compliant HLA Federates in the Simulation Exploration
+ Experience (SEE) program.
+
+ Copyright (c) 2014, 2026 SMASH Lab - University of Calabria
+ (Italy), Hridyanshu Aatreya - Modelling & Simulation Group (MSG)
+ at Brunel University of London (UK). All rights reserved.
+
+ GNU Lesser General Public License (GNU LGPL).
+
+ This library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 3.0 of the License, or (at your option) any later version.
+
+ This library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+
+ You should have received a copy of the GNU Lesser General Public
+ License along with this library.
+ If not, see http://http://www.gnu.org/licenses/
+ *****************************************************************/
+
 package org.see.skf.internal.runtime;
 
 import hla.rti1516_2025.InteractionClassHandle;
@@ -18,12 +44,12 @@ public final class HLAInteractionManager {
 
     private final RTIambassador rtiAmbassador;
 
-    private final SKAnnotatedTypeParser2 parser;
+    private final SKAnnotatedTypeParser parser;
 
     private final Set<HLAInteractionClass> interactionClasses;
     private final Set<InteractionListener> interactionListeners;
 
-    public HLAInteractionManager(SKAnnotatedTypeParser2 parser) {
+    public HLAInteractionManager(SKAnnotatedTypeParser parser) {
         rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
         this.parser = parser;
 
@@ -53,7 +79,7 @@ public final class HLAInteractionManager {
     }
 
     private HLAInteractionClass createInteractionClass(Class<?> proxyClass) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
-        SKAnnotatedTypeParser2.Metadata proxyMetadata = this.parser.parseInteractionProxy(proxyClass);
+        SKAnnotatedTypeParser.Metadata proxyMetadata = this.parser.parseInteractionProxy(proxyClass);
         String className = proxyMetadata.getFomClassName();
 
         InteractionClassHandle handle;

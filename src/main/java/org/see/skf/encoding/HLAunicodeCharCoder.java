@@ -24,16 +24,28 @@
  If not, see http://http://www.gnu.org/licenses/
  *****************************************************************/
 
-package org.see.skf.internal.runtime;
+package org.see.skf.encoding;
 
-final class CoderInstantiationException extends RuntimeException {
+import hla.rti1516_2025.encoding.DecoderException;
+import hla.rti1516_2025.encoding.EncoderFactory;
+import hla.rti1516_2025.encoding.HLAunicodeChar;
 
-  CoderInstantiationException(String message) {
-    super(message);
-  }
+public final class HLAunicodeCharCoder implements Coder<Short> {
+    private final HLAunicodeChar char16Type;
 
-  CoderInstantiationException(String message, Throwable cause) {
-    super(message, cause);
-  }
+    public HLAunicodeCharCoder(EncoderFactory encoderFactory) {
+        this.char16Type = encoderFactory.createHLAunicodeChar();
+    }
 
+    @Override
+    public Short decode(byte[] buffer) throws DecoderException {
+        this.char16Type.decode(buffer);
+        return this.char16Type.getValue();
+    }
+
+    @Override
+    public byte[] encode(Short element) {
+        this.char16Type.setValue(element);
+        return this.char16Type.toByteArray();
+    }
 }

@@ -41,10 +41,10 @@ public class DynamicalEntity extends PhysicalEntity {
     private Vector3D torque;
 
     @Attribute(name = "mass", coder = HLAfloat64LECoder.class)
-    private double mass;
+    private Double mass;
 
     @Attribute(name = "mass_rate", coder = HLAfloat64LECoder.class)
-    private double massRate;
+    private Double massRate;
 
     @Attribute(name = "inertia", coder = SimpleMatrixCoder.class)
     private SimpleMatrix inertia;
@@ -62,7 +62,7 @@ public class DynamicalEntity extends PhysicalEntity {
     }
 
     public Vector3D getForce() {
-        return force;
+        return this.force;
     }
 
     public void setForce(Vector3D force) {
@@ -70,7 +70,7 @@ public class DynamicalEntity extends PhysicalEntity {
     }
 
     public Vector3D getTorque() {
-        return torque;
+        return this.torque;
     }
 
     public void setTorque(Vector3D torque) {
@@ -78,7 +78,7 @@ public class DynamicalEntity extends PhysicalEntity {
     }
 
     public Double getMass() {
-        return mass;
+        return this.mass;
     }
 
     public void setMass(Double mass) {
@@ -86,7 +86,7 @@ public class DynamicalEntity extends PhysicalEntity {
     }
 
     public Double getMassRate() {
-        return massRate;
+        return this.massRate;
     }
 
     public void setMassRate(Double massRate) {
@@ -94,7 +94,7 @@ public class DynamicalEntity extends PhysicalEntity {
     }
 
     public SimpleMatrix getInertia() {
-        return inertia;
+        return this.inertia;
     }
 
     public void setInertia(SimpleMatrix inertia) {
@@ -102,7 +102,7 @@ public class DynamicalEntity extends PhysicalEntity {
     }
 
     public SimpleMatrix getInertiaRate() {
-        return inertiaRate;
+        return this.inertiaRate;
     }
 
     public void setInertiaRate(SimpleMatrix inertiaRate) {

@@ -48,7 +48,7 @@ public class ReferenceFrame {
     }
 
     public String getName() {
-        return name;
+        return this.name;
     }
 
     public void setName(String name) {
@@ -56,7 +56,7 @@ public class ReferenceFrame {
     }
 
     public String getParentName() {
-        return parentName;
+        return this.parentName;
     }
 
     public void setParentName(String parentName) {
@@ -64,7 +64,7 @@ public class ReferenceFrame {
     }
 
     public SpaceTimeCoordinateState getState() {
-        return state;
+        return this.state;
     }
 
     public void setState(SpaceTimeCoordinateState state) {

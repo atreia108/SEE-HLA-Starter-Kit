@@ -76,7 +76,7 @@ public class PhysicalEntity {
     }
 
     public String getName() {
-        return name;
+        return this.name;
     }
 
     public void setName(String name) {
@@ -84,7 +84,7 @@ public class PhysicalEntity {
     }
 
     public String getType() {
-        return type;
+        return this.type;
     }
 
     public void setType(String type) {
@@ -92,7 +92,7 @@ public class PhysicalEntity {
     }
 
     public String getStatus() {
-        return status;
+        return this.status;
     }
 
     public void setStatus(String status) {
@@ -100,7 +100,7 @@ public class PhysicalEntity {
     }
 
     public String getParentReferenceFrame() {
-        return parentReferenceFrame;
+        return this.parentReferenceFrame;
     }
 
     public void setParentReferenceFrame(String parentReferenceFrame) {
@@ -108,7 +108,7 @@ public class PhysicalEntity {
     }
 
     public SpaceTimeCoordinateState getState() {
-        return state;
+        return this.state;
     }
 
     public void setState(SpaceTimeCoordinateState state) {
@@ -116,7 +116,7 @@ public class PhysicalEntity {
     }
 
     public Vector3D getAcceleration() {
-        return acceleration;
+        return this.acceleration;
     }
 
     public void setAcceleration(Vector3D acceleration) {
@@ -124,7 +124,7 @@ public class PhysicalEntity {
     }
 
     public Vector3D getRotationalAcceleration() {
-        return rotationalAcceleration;
+        return this.rotationalAcceleration;
     }
 
     public void setRotationalAcceleration(Vector3D rotationalAcceleration) {
@@ -132,7 +132,7 @@ public class PhysicalEntity {
     }
 
     public Vector3D getCenterOfMass() {
-        return centerOfMass;
+        return this.centerOfMass;
     }
 
     public void setCenterOfMass(Vector3D centerOfMass) {
@@ -140,7 +140,7 @@ public class PhysicalEntity {
     }
 
     public Quaternion getBodyWrtStructural() {
-        return bodyWrtStructural;
+        return this.bodyWrtStructural;
     }
 
     public void setBodyWrtStructural(Quaternion bodyWrtStructural) {

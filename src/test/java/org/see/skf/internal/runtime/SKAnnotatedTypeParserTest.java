@@ -1,15 +1,15 @@
 package org.see.skf.internal.runtime;
 
 import org.junit.jupiter.api.Test;
+import org.see.baseplate.models.DynamicalEntity;
+import org.see.baseplate.models.PhysicalEntity;
+import org.see.baseplate.models.ReferenceFrame;
 import org.see.skf.core.annotations.Attribute;
 import org.see.skf.core.annotations.InteractionClass;
 import org.see.skf.core.annotations.ObjectClass;
 import org.see.skf.core.annotations.Parameter;
 import org.see.skf.encoding.HLAbooleanCoder;
 import org.see.skf.encoding.HLAunicodeStringCoder;
-import org.see.skf.internal.runtime.models.DynamicalEntity;
-import org.see.skf.internal.runtime.models.PhysicalEntity;
-import org.see.skf.internal.runtime.models.ReferenceFrame;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -18,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SKAnnotatedTypeParserTest {
 
-    private final CoderManager coderManager;
     private final SKAnnotatedTypeParser parser;
 
     private final Set<String> referenceFrameAttributes;
@@ -29,7 +28,7 @@ class SKAnnotatedTypeParserTest {
     private final Set<String> annotatedInteractionClassAttributes;
 
     public SKAnnotatedTypeParserTest() {
-        this.coderManager = new CoderManager();
+        CoderManager coderManager = new CoderManager();
         this.parser = new SKAnnotatedTypeParser(coderManager);
 
         this.referenceFrameAttributes = new HashSet<>() {{
@@ -71,40 +70,30 @@ class SKAnnotatedTypeParserTest {
 
     @Test
     void testConstructorExceptions() {
-        Object unannotatedObject = new UnannotatedObject();
-        assertThrows(Exception.class, () -> parser.parseObjectInstance(unannotatedObject));
+        assertThrows(Exception.class, () -> parser.parseObjectInstanceProxy(UnannotatedObject.class));
+        assertThrows(Exception.class, () -> parser.parseObjectInstanceProxy(MultiannotatedObject.class));
 
-        Object multiannotatedObject = new MultiannotatedObject();
-        assertThrows(Exception.class, () -> parser.parseObjectInstance(multiannotatedObject));
-
-        PhysicalEntity physicalEntity = new PhysicalEntity();
-        DynamicalEntity dynamicalEntity = new DynamicalEntity();
-        ReferenceFrame referenceFrame = new ReferenceFrame();
-        assertDoesNotThrow(() -> parser.parseObjectInstance(physicalEntity));
-        assertDoesNotThrow(() -> parser.parseObjectInstance(dynamicalEntity));
-        assertDoesNotThrow(() -> parser.parseObjectInstance(referenceFrame));
+        assertDoesNotThrow(() -> parser.parseObjectInstanceProxy(PhysicalEntity.class));
+        assertDoesNotThrow(() -> parser.parseObjectInstanceProxy(DynamicalEntity.class));
+        assertDoesNotThrow(() -> parser.parseObjectInstanceProxy(ReferenceFrame.class));
     }
 
     @Test
     void basicParseTest() {
-        PhysicalEntity physicalEntity = new PhysicalEntity();
-        ReferenceFrame referenceFrame = new ReferenceFrame();
-        DynamicalEntity dynamicalEntity = new DynamicalEntity();
+        SKAnnotatedTypeParser.Metadata physicalEntityStructure = parser.parseObjectInstanceProxy(PhysicalEntity.class);
+        SKAnnotatedTypeParser.Metadata dynamicalEntityStructure = parser.parseObjectInstanceProxy(DynamicalEntity.class);
+        SKAnnotatedTypeParser.Metadata referenceFrameStructure = parser.parseObjectInstanceProxy(ReferenceFrame.class);
 
-        SKAnnotatedTypeParser.ParsedObjectMetadata physicalEntityStructure = parser.parseObjectInstance(physicalEntity);
-        SKAnnotatedTypeParser.ParsedObjectMetadata dynamicalEntityStructure = parser.parseObjectInstance(dynamicalEntity);
-        SKAnnotatedTypeParser.ParsedObjectMetadata referenceFrameStructure = parser.parseObjectInstance(referenceFrame);
-
-        assertEquals("HLAobjectRoot.PhysicalEntity", physicalEntityStructure.getClassNameInFom());
-        assertEquals("HLAobjectRoot.PhysicalEntity.DynamicalEntity", dynamicalEntityStructure.getClassNameInFom());
-        assertEquals("HLAobjectRoot.ReferenceFrame", referenceFrameStructure.getClassNameInFom());
+        assertEquals("HLAobjectRoot.PhysicalEntity", physicalEntityStructure.getFomClassName());
+        assertEquals("HLAobjectRoot.PhysicalEntity.DynamicalEntity", dynamicalEntityStructure.getFomClassName());
+        assertEquals("HLAobjectRoot.ReferenceFrame", referenceFrameStructure.getFomClassName());
 
         assertTrue(areAllTraitsPresent(physicalEntityAttributes, physicalEntityStructure.getTraits()));
         assertTrue(areAllTraitsPresent(dynamicalEntityAttributes, dynamicalEntityStructure.getTraits()));
         assertTrue(areAllTraitsPresent(referenceFrameAttributes, referenceFrameStructure.getTraits()));
     }
 
-    private boolean areAllTraitsPresent(Set<String> expectedTraits, Set<SKAnnotatedTypeParser.Trait> actualTraits) {
+    private boolean areAllTraitsPresent(Set<String> expectedTraits, Set<Trait> actualTraits) {
         for (String traitName : expectedTraits) {
             if (!hasTraitWithName(traitName, actualTraits)) {
                 return false;
@@ -114,11 +103,11 @@ class SKAnnotatedTypeParserTest {
         return true;
     }
 
-    private boolean hasTraitWithName(String name, Set<SKAnnotatedTypeParser.Trait> traits) {
+    private boolean hasTraitWithName(String name, Set<Trait> traits) {
         boolean found = false;
 
-        for (SKAnnotatedTypeParser.Trait t : traits) {
-            if (t.getName().equals(name)) {
+        for (Trait t : traits) {
+            if (t.getAnnotatedName().equals(name)) {
                 found = true;
                 break;
             }
@@ -129,26 +118,20 @@ class SKAnnotatedTypeParserTest {
 
     @Test
     void testInheritance() {
-        AnnotatedObjectClassL3 annotatedEntityL3 = new AnnotatedObjectClassL3();
-        SKAnnotatedTypeParser.ParsedObjectMetadata annotatedObjectClassL3Structure = parser.parseObjectInstance(annotatedEntityL3);
-        assertEquals("HLAobjectRoot.AnnotatedObjectClassL1", annotatedObjectClassL3Structure.getClassNameInFom());
+        SKAnnotatedTypeParser.Metadata annotatedObjectClassL3Structure = parser.parseObjectInstanceProxy(AnnotatedObjectClassL3.class);
+        assertEquals("HLAobjectRoot.AnnotatedObjectClassL1", annotatedObjectClassL3Structure.getFomClassName());
         assertTrue(areAllTraitsPresent(annotatedObjectClassAttributes, annotatedObjectClassL3Structure.getTraits()));
 
-        AnnotatedInteractionClassL3 annotatedInteractionClassL3 = new AnnotatedInteractionClassL3();
-        SKAnnotatedTypeParser.ParsedObjectMetadata annotatedInteractionClassL3Structure = parser.parseInteraction(annotatedInteractionClassL3);
-        assertEquals("HLAinteractionRoot.AnnotatedInteractionClassL3", annotatedInteractionClassL3Structure.getClassNameInFom());
+        SKAnnotatedTypeParser.Metadata annotatedInteractionClassL3Structure = parser.parseInteractionProxy(AnnotatedInteractionClassL3.class);
+        assertEquals("HLAinteractionRoot.AnnotatedInteractionClassL3", annotatedInteractionClassL3Structure.getFomClassName());
         assertTrue(areAllTraitsPresent(annotatedInteractionClassAttributes, annotatedInteractionClassL3Structure.getTraits()));
     }
 
     @Test
     void testCoderFieldTypeMismatch() {
-        assertDoesNotThrow(() -> parser.parseObjectInstance(new PhysicalEntity()));
-
-        FieldCoderMismatchObjectClass objClass = new FieldCoderMismatchObjectClass();
-        assertThrows(Exception.class, () -> parser.parseObjectInstance(objClass));
-
-        FieldCoderMismatchInteractionClass interactionClass = new FieldCoderMismatchInteractionClass();
-        assertThrows(Exception.class, () -> parser.parseObjectInstance(interactionClass));
+        assertDoesNotThrow(() -> parser.parseObjectInstanceProxy(PhysicalEntity.class));
+        assertThrows(Exception.class, () -> parser.parseObjectInstanceProxy(FieldCoderMismatchObjectClass.class));
+        assertThrows(Exception.class, () -> parser.parseObjectInstanceProxy(FieldCoderMismatchInteractionClass.class));
     }
 }
 
@@ -275,13 +258,20 @@ class AnnotatedInteractionClassL1 {
 }
 
 class AnnotatedInteractionClassL2 extends AnnotatedInteractionClassL1 {
-    private int unannotatedParameter1;
-
-    private float unannotatedParameter2;
+    private final int unannotatedParameter1;
+    private final float unannotatedParameter2;
 
     public AnnotatedInteractionClassL2() {
         this.unannotatedParameter1 = 0;
         this.unannotatedParameter2 = 0;
+    }
+
+    public int getUnannotatedParameter1() {
+        return unannotatedParameter1;
+    }
+
+    public float getUnannotatedParameter2() {
+        return unannotatedParameter2;
     }
 }
 
