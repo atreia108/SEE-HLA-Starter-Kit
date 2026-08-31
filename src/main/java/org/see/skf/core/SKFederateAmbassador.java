@@ -151,6 +151,39 @@ final class SKFederateAmbassador extends NullFederateAmbassador {
         this.executor.submit(() -> this.syncPointManager.federationSynchronized(synchronizationPointLabel));
     }
 
+    @Override
+    public void attributeIsNotOwned(ObjectInstanceHandle objectInstance, AttributeHandleSet attributes) throws FederateInternalError {
+        this.executor.submit(() -> this.callbackManager.completeAttributeOwnershipQuery(objectInstance, attributes, null));
+    }
+
+    @Override
+    public void attributeIsOwnedByRTI(ObjectInstanceHandle objectInstance, AttributeHandleSet attributes) throws FederateInternalError {
+        this.executor.submit(() -> this.callbackManager.completeAttributeOwnershipQuery(objectInstance, attributes, "RTI"));
+    }
+
+    @Override
+    public void informAttributeOwnership(ObjectInstanceHandle objectInstance, AttributeHandleSet attributes, FederateHandle owner) throws FederateInternalError {
+        this.executor.submit(() -> {
+            String ownerName = this.federateMapping.get(owner);
+            this.callbackManager.completeAttributeOwnershipQuery(objectInstance, attributes, ownerName);
+        });
+    }
+
+    @Override
+    public void requestAttributeOwnershipRelease(ObjectInstanceHandle objectInstance, AttributeHandleSet candidateAttributes, byte[] userSuppliedTag) throws FederateInternalError {
+        this.executor.submit(() -> this.objectManager.notifyAttributeOwnershipReleaseRequested(objectInstance, candidateAttributes));
+    }
+
+    @Override
+    public void attributeOwnershipAcquisitionNotification(ObjectInstanceHandle objectInstance, AttributeHandleSet securedAttributes, byte[] userSuppliedTag) throws FederateInternalError {
+        this.executor.submit(() -> this.objectManager.notifyAttributeOwnershipAcquired(objectInstance, securedAttributes, true));
+    }
+
+    @Override
+    public void attributeOwnershipUnavailable(ObjectInstanceHandle objectInstance, AttributeHandleSet attributes, byte[] userSuppliedTag) throws FederateInternalError {
+        this.executor.submit(() -> this.objectManager.notifyAttributeOwnershipAcquired(objectInstance, attributes, false));
+    }
+
     static final class Builder {
 
         private ExecutorService executor;

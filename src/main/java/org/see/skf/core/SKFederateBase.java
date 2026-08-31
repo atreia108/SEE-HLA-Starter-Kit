@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import java.beans.PropertyChangeListener;
 import java.io.File;
+import java.util.Map;
 import java.util.concurrent.*;
 
 public abstract class SKFederateBase implements SKFederate {
@@ -361,6 +362,31 @@ public abstract class SKFederateBase implements SKFederate {
     @Override
     public final void removeSyncPointListener(SyncPointListener listener) {
         this.syncPointManager.removeSyncPointListener(listener);
+    }
+
+    @Override
+    public final Future<Map<String, String>> queryAttributeOwnership(String objectInstanceName, String... attributeNames) {
+        return this.objectManager.queryAttributeOwnership(objectInstanceName, attributeNames);
+    }
+
+    @Override
+    public final void acquireAttributeOwnership(String objectInstanceName, String... attributeNames) throws FederateNotExecutionMember, ObjectClassNotPublished, AttributeNotDefined, RestoreInProgress, FederateOwnsAttributes, ObjectInstanceNotKnown, NotConnected, RTIinternalError, AttributeNotPublished, SaveInProgress {
+        this.objectManager.acquireAttributeOwnership(objectInstanceName, attributeNames);
+    }
+
+    @Override
+    public final void divestAttributeOwnershipIfWanted(Object objectInstance, String... attributeNames) throws FederateNotExecutionMember, AttributeNotDefined, RestoreInProgress, AttributeNotOwned, ObjectInstanceNotKnown, NotConnected, RTIinternalError, SaveInProgress {
+        this.objectManager.divestAttributeOwnershipIfWanted(objectInstance, attributeNames);
+    }
+
+    @Override
+    public final void addAttributeOwnershipListener(Object objectInstance, AttributeOwnershipListener listener) {
+        this.objectManager.addAttributeOwnershipListener(objectInstance, listener);
+    }
+
+    @Override
+    public final void removeAttributeOwnershipListener(AttributeOwnershipListener listener) {
+        this.objectManager.removeAttributeOwnershipListener(listener);
     }
 
     @Override

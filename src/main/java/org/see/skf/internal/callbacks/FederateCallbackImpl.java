@@ -36,9 +36,9 @@ final class FederateCallbackImpl<T> implements FederateCallback<T> {
 
     private final CountDownLatch latch;
 
-    FederateCallbackImpl(int latchCount) {
+    FederateCallbackImpl() {
         this.task = createTask();
-        this.latch = new CountDownLatch(latchCount);
+        this.latch = new CountDownLatch(1);
     }
 
     private FutureTask<T> createTask() {

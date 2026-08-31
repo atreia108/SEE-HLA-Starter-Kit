@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -43,13 +44,11 @@ import java.util.function.Predicate;
 final class HLAObjectClass {
 
     private static final Logger logger = LoggerFactory.getLogger(HLAObjectClass.class);
-    // private static final String HLA_PRIVILEGE_TO_DELETE_OBJECT = "HLAprivilegeToDeleteObject";
+    private static final String HLA_PRIVILEGE_TO_DELETE_OBJECT = "HLAprivilegeToDeleteObject";
 
     private final RTIambassador rtiAmbassador;
 
     private final ObjectClassHandle handle;
-
-    // private final AttributeHandle privilegeToDeleteObject;
 
     private final String name;
 
@@ -65,26 +64,31 @@ final class HLAObjectClass {
         rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
 
         this.handle = builder.handle;
-        // this.privilegeToDeleteObject = createHLAPrivilegeToDeleteObjectAttribute();
         this.name = builder.objectMetadata.getFomClassName();
         this.proxyClass = builder.objectMetadata.getProxyClass();
         this.attributeToTrait = computeAttributeToTraitAssociation(builder.objectMetadata.getTraits());
         this.attributes = rtiAmbassador.getAttributeHandleSetFactory().create();
         this.attributeValues = rtiAmbassador.getAttributeHandleValueMapFactory().create(this.attributeToTrait.size());
+
+        initializePrivilegeToDeleteAttribute();
     }
 
-    /*
+    private void initializePrivilegeToDeleteAttribute() throws FederateNotExecutionMember, NotConnected, RTIinternalError {
+        AttributeHandle privilegeToDeleteObjectHandle = createHLAPrivilegeToDeleteObjectAttribute();
+        Attribute privilegeToDeleteObjectAttribute = new Attribute(HLA_PRIVILEGE_TO_DELETE_OBJECT, privilegeToDeleteObjectHandle);
+        this.attributeToTrait.put(privilegeToDeleteObjectAttribute, null);
+    }
+
     private AttributeHandle createHLAPrivilegeToDeleteObjectAttribute() throws FederateNotExecutionMember, NotConnected, RTIinternalError {
         AttributeHandle attributeHandle = null;
         try {
-            attributeHandle = rtiAmbassador.getAttributeHandle(this.handle,"HLAprivilegeToDeleteObject");
+            attributeHandle = rtiAmbassador.getAttributeHandle(this.handle, HLA_PRIVILEGE_TO_DELETE_OBJECT);
         } catch (NameNotFound | InvalidObjectClassHandle e) {
-            logger.warn("The handle for the attribute HLAprivilegeToDeleteObject of the object class <{}> could not be retrieved from the RTI. Attribute ownership operations will not work correctly.", this.name);
+            logger.warn("The handle for the attribute HLAprivilegeToDeleteObject of the object class <{}> could not be retrieved from the RTI. Attribute ownership operations may exhibit undefined behavior.", this.name);
         }
 
         return attributeHandle;
     }
-     */
 
     private Map<Attribute, Trait> computeAttributeToTraitAssociation(Set<Trait> traits) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
         Map<Attribute, Trait> map = new HashMap<>();
@@ -125,8 +129,6 @@ final class HLAObjectClass {
             throw new RuntimeException(e);
         }
 
-
-
         String loggableAttributeNames = getNamesInLoggableFormat(attributeNames);
         logger.info("Published HLA object class <{}> attributes: {}.", this.name, loggableAttributeNames);
     }
@@ -152,8 +154,6 @@ final class HLAObjectClass {
         }  catch (AttributeNotDefined | ObjectClassNotDefined e) {
             throw new RuntimeException(e);
         }
-
-
 
         String loggableAttributeNames = getNamesInLoggableFormat(attributeNames);
         logger.info("Unpublished HLA object class <{}> attributes: {}.", this.name, loggableAttributeNames);
@@ -281,14 +281,6 @@ final class HLAObjectClass {
         }
     }
 
-    private Attribute getAttribute(Predicate<Attribute> predicate) {
-        return this.attributeToTrait.keySet()
-                .stream()
-                .filter(predicate)
-                .findFirst()
-                .orElse(null);
-    }
-
     String getName() {
         return this.name;
     }
@@ -313,6 +305,14 @@ final class HLAObjectClass {
         }
     }
 
+    private Attribute getAttribute(Predicate<Attribute> predicate) {
+        return this.attributeToTrait.keySet()
+                .stream()
+                .filter(predicate)
+                .findFirst()
+                .orElse(null);
+    }
+
     AttributeHandleSet getSubscribedAttributes() {
         this.attributes.clear();
 
@@ -333,10 +333,31 @@ final class HLAObjectClass {
 
             if (attribute != null) {
                 this.attributes.add(attribute.handle);
+            } else {
+                logger.warn("The attribute <{}> is unknown for the object class <{}>.", attributeName, this.name);
             }
         }
 
         return this.attributes;
+    }
+
+    Set<String> getAttributeNames(AttributeHandleSet set) {
+        Set<String> attributeNames = new HashSet<>();
+
+        set.forEach(attributeHandle -> {
+            Attribute attribute = getAttribute(a -> a.handle.equals(attributeHandle));
+
+            if (attribute != null) {
+                attributeNames.add(attribute.name);
+            }
+        });
+
+        return attributeNames;
+    }
+
+    String getAttributeName(AttributeHandle attributeHandle) {
+        Attribute attribute = getAttribute(a -> a.handle.equals(attributeHandle));
+        return attribute == null ? null : attribute.name;
     }
 
     private static final class Attribute {

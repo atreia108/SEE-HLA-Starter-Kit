@@ -29,6 +29,7 @@ package org.see.skf.core;
 import hla.rti1516_2025.exceptions.*;
 
 import java.beans.PropertyChangeListener;
+import java.util.Map;
 import java.util.concurrent.Future;
 
 public interface SKFederate {
@@ -96,6 +97,16 @@ public interface SKFederate {
     void addSyncPointListener(String label, SyncPointListener listener);
 
     void removeSyncPointListener(SyncPointListener listener);
+
+    Future<Map<String, String>> queryAttributeOwnership(String objectInstanceName, String... attributeNames);
+
+    void acquireAttributeOwnership(String objectInstanceName, String... attributeNames) throws FederateNotExecutionMember, ObjectClassNotPublished, AttributeNotDefined, RestoreInProgress, FederateOwnsAttributes, ObjectInstanceNotKnown, NotConnected, RTIinternalError, AttributeNotPublished, SaveInProgress;
+
+    void divestAttributeOwnershipIfWanted(Object objectInstance, String... attributeNames) throws FederateNotExecutionMember, AttributeNotDefined, RestoreInProgress, AttributeNotOwned, ObjectInstanceNotKnown, NotConnected, RTIinternalError, SaveInProgress;
+
+    void addAttributeOwnershipListener(Object objectInstance, AttributeOwnershipListener listener);
+
+    void removeAttributeOwnershipListener(AttributeOwnershipListener listener);
 
     double getSimulationTime();
 

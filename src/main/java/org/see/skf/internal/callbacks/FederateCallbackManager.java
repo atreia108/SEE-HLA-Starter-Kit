@@ -34,7 +34,7 @@ import org.see.skf.internal.HLAUtilityFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.*;
 
 public final class FederateCallbackManager {
@@ -45,7 +45,9 @@ public final class FederateCallbackManager {
 
     private final ExecutorService executor;
 
-    private final Set<FederateBiCallback<String, Boolean>> nameReservationCallbacks;
+    private final Map<String, FederateCallback<Boolean>> nameReservationCallbacks;
+    private final Map<AttributeOwnershipQuery, FederateCallback<Map<AttributeHandle, String>>> attributeOwnershipQueries;
+
     private FederateCallback<HLAinteger64Time> timeConstrainedEnabledCallback;
     private FederateCallback<HLAinteger64Time> timeRegulationEnabledCallback;
     private FederateCallback<HLAinteger64Time> timeAdvanceGrantCallback;
@@ -54,13 +56,15 @@ public final class FederateCallbackManager {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
         this.executor = executor;
 
-        this.nameReservationCallbacks = new CopyOnWriteArraySet<>();
+        this.nameReservationCallbacks = new ConcurrentHashMap<>();
+        this.attributeOwnershipQueries = new ConcurrentHashMap<>();
     }
 
     public Future<Boolean> invokeNameReservationCallback(String objectInstanceName) throws FederateNotExecutionMember, RestoreInProgress, IllegalName, NotConnected, RTIinternalError, SaveInProgress {
-        FederateBiCallback<String, Boolean> callback = new BiCallbackImpl<>(objectInstanceName,1);
+        FederateCallback<Boolean> callback = new FederateCallbackImpl<>();
+        this.nameReservationCallbacks.put(objectInstanceName, callback);
+
         FutureTask<Boolean> task = callback.getTask();
-        this.nameReservationCallbacks.add(callback);
         this.executor.submit(task);
 
         rtiAmbassador.reserveObjectInstanceName(objectInstanceName);
@@ -69,16 +73,19 @@ public final class FederateCallbackManager {
     }
 
     public void completeNameReservationCallback(String objectInstanceName, boolean outcomeValue) {
-        for (FederateBiCallback<String, Boolean> callback : this.nameReservationCallbacks) {
-            if (callback.getTarget().equals(objectInstanceName)) {
+        for (Map.Entry<String, FederateCallback<Boolean>> entry : this.nameReservationCallbacks.entrySet()) {
+            String instanceName = entry.getKey();
+            FederateCallback<Boolean> callback = entry.getValue();
+
+            if (instanceName.equals(objectInstanceName)) {
                 callback.complete(outcomeValue);
-                this.nameReservationCallbacks.remove(callback);
+                this.nameReservationCallbacks.remove(instanceName);
             }
         }
     }
 
     public Future<HLAinteger64Time> invokeTimeConstrainedCallback() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        this.timeConstrainedEnabledCallback = new FederateCallbackImpl<>(1);
+        this.timeConstrainedEnabledCallback = new FederateCallbackImpl<>();
         FutureTask<HLAinteger64Time> task = this.timeConstrainedEnabledCallback.getTask();
         this.executor.submit(task);
 
@@ -99,7 +106,7 @@ public final class FederateCallbackManager {
     }
 
     public Future<HLAinteger64Time> invokeTimeRegulationCallback(HLAinteger64Interval lookaheadInLogicalTime) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        this.timeRegulationEnabledCallback = new FederateCallbackImpl<>(1);
+        this.timeRegulationEnabledCallback = new FederateCallbackImpl<>();
         FutureTask<HLAinteger64Time> task = this.timeRegulationEnabledCallback.getTask();
         this.executor.submit(task);
 
@@ -122,7 +129,7 @@ public final class FederateCallbackManager {
     }
 
     public Future<HLAinteger64Time> invokeTimeAdvanceGrantCallback(HLAinteger64Time nextLogicalTime) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        this.timeAdvanceGrantCallback = new FederateCallbackImpl<>(1);
+        this.timeAdvanceGrantCallback = new FederateCallbackImpl<>();
         FutureTask<HLAinteger64Time> task = this.timeAdvanceGrantCallback.getTask();
         this.executor.submit(task);
 
@@ -141,6 +148,37 @@ public final class FederateCallbackManager {
         if (this.timeAdvanceGrantCallback != null) {
             this.timeAdvanceGrantCallback.complete(grantedTime);
             this.timeAdvanceGrantCallback = null;
+        }
+    }
+
+    public Future<Map<AttributeHandle, String>> invokeAttributeOwnershipQuery(ObjectInstanceHandle objectInstance, AttributeHandleSet set) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        AttributeOwnershipQuery query = new AttributeOwnershipQuery(objectInstance, set);
+        FederateCallback<Map<AttributeHandle, String>> callback = new FederateCallbackImpl<>();
+        this.attributeOwnershipQueries.put(query, callback);
+
+        FutureTask<Map<AttributeHandle, String>> task = callback.getTask();
+        this.executor.submit(task);
+
+        try {
+            rtiAmbassador.queryAttributeOwnership(objectInstance, set);
+        } catch (AttributeNotDefined | ObjectInstanceNotKnown e) {
+            throw new RuntimeException("Failed to query attribute ownership.", e);
+        }
+
+        return task;
+    }
+
+    public void completeAttributeOwnershipQuery(ObjectInstanceHandle instanceHandle, AttributeHandleSet set, String ownerName) {
+        for (Map.Entry<AttributeOwnershipQuery, FederateCallback<Map<AttributeHandle, String>>> entry : this.attributeOwnershipQueries.entrySet()) {
+            AttributeOwnershipQuery query = entry.getKey();
+            FederateCallback<Map<AttributeHandle, String>> callback = entry.getValue();
+
+            if (instanceHandle.equals(query.getInstanceHandle())) {
+                query.inform(set, ownerName);
+                if (query.isCompleted()) {
+                    callback.complete(query.getResult());
+                }
+            }
         }
     }
 }

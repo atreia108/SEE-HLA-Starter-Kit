@@ -28,6 +28,7 @@ package org.see.skf.internal.runtime;
 
 import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.*;
+import org.see.skf.core.AttributeOwnershipListener;
 import org.see.skf.core.RemoteObjectInstanceListener;
 import org.see.skf.internal.HLAUtilityFactory;
 import org.see.skf.internal.callbacks.FederateCallbackManager;
@@ -37,6 +38,7 @@ import org.slf4j.LoggerFactory;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -50,18 +52,15 @@ public final class HLAObjectManager {
     private final RTIambassador rtiAmbassador;
 
     private final ExecutorService executor;
-
     private final FederateCallbackManager callbackManager;
-
     private final SKAnnotatedTypeParser parser;
 
     private final Set<HLAObjectClass> objectClasses;
-
     private final Set<ObjectInstance> objectInstances;
 
-    private final Map<String, Set<RemoteObjectInstanceListener>> remoteObjectInstanceListeners;
-
+    private final Map<String, Set<RemoteObjectInstanceListener>> remoteInstanceNameToListeners;
     private final Set<ObjectInstanceHandle> instancesPendingInitialValues;
+    private final Map<ObjectInstance, Set<AttributeOwnershipListener>> instanceNameToAttributeOwnershipListeners;
 
     public HLAObjectManager(FederateCallbackManager callbackManager, ExecutorService executor, SKAnnotatedTypeParser parser) {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
@@ -72,8 +71,9 @@ public final class HLAObjectManager {
 
         this.objectClasses = new CopyOnWriteArraySet<>();
         this.objectInstances = new CopyOnWriteArraySet<>();
-        this.remoteObjectInstanceListeners = new ConcurrentHashMap<>();
+        this.remoteInstanceNameToListeners = new ConcurrentHashMap<>();
         this.instancesPendingInitialValues = new CopyOnWriteArraySet<>();
+        this.instanceNameToAttributeOwnershipListeners = new ConcurrentHashMap<>();
     }
 
     private HLAObjectClass createObjectClass(Class<?> proxyClass) throws FederateNotExecutionMember, NotConnected, RTIinternalError {
@@ -307,7 +307,7 @@ public final class HLAObjectManager {
     }
 
     private void notifyRemoteObjectInstanceDiscovered(String name, String producingFederateName) {
-        Set<RemoteObjectInstanceListener> listeners = this.remoteObjectInstanceListeners.get(name);
+        Set<RemoteObjectInstanceListener> listeners = this.remoteInstanceNameToListeners.get(name);
 
         if (!listeners.isEmpty()) {
             listeners.forEach(listener -> listener.discovered(producingFederateName));
@@ -315,7 +315,7 @@ public final class HLAObjectManager {
     }
 
     private void notifyRemoteObjectInstanceInitialized(String name, Object proxy) {
-        Set<RemoteObjectInstanceListener> listeners = this.remoteObjectInstanceListeners.get(name);
+        Set<RemoteObjectInstanceListener> listeners = this.remoteInstanceNameToListeners.get(name);
 
         if (!listeners.isEmpty()) {
             listeners.forEach(listener -> listener.initialized(proxy));
@@ -323,7 +323,7 @@ public final class HLAObjectManager {
     }
 
     private void notifyRemoteObjectInstanceDestroyed(String name, String producingFederateName) {
-        Set<RemoteObjectInstanceListener> listeners = this.remoteObjectInstanceListeners.get(name);
+        Set<RemoteObjectInstanceListener> listeners = this.remoteInstanceNameToListeners.get(name);
 
         if (!listeners.isEmpty()) {
             listeners.forEach(listener -> listener.destroyed(producingFederateName));
@@ -383,12 +383,12 @@ public final class HLAObjectManager {
             return;
         }
 
-        this.remoteObjectInstanceListeners.computeIfAbsent(objectInstanceName, set -> new HashSet<>());
-        this.remoteObjectInstanceListeners.get(objectInstanceName).add(listener);
+        this.remoteInstanceNameToListeners.computeIfAbsent(objectInstanceName, set -> new HashSet<>());
+        this.remoteInstanceNameToListeners.get(objectInstanceName).add(listener);
     }
 
     public void removeObjectInstanceListener(RemoteObjectInstanceListener listener) {
-        for (Map.Entry<String, Set<RemoteObjectInstanceListener>> entry : this.remoteObjectInstanceListeners.entrySet()) {
+        for (Map.Entry<String, Set<RemoteObjectInstanceListener>> entry : this.remoteInstanceNameToListeners.entrySet()) {
             String objectInstanceName = entry.getKey();
             Set<RemoteObjectInstanceListener> listeners = entry.getValue();
 
@@ -396,7 +396,7 @@ public final class HLAObjectManager {
                 listeners.remove(listener);
 
                 if (listeners.isEmpty()) {
-                    this.remoteObjectInstanceListeners.remove(objectInstanceName);
+                    this.remoteInstanceNameToListeners.remove(objectInstanceName);
                 }
 
                 break;
@@ -436,6 +436,132 @@ public final class HLAObjectManager {
         }
     }
 
+    public Future<Map<String, String>> queryAttributeOwnership(String instanceName, String... attributeNames) {
+        if (instanceName == null || attributeNames == null) {
+            throw new IllegalArgumentException("Cannot query attribute ownership since a NULL reference was passed in for one of the arguments.");
+        }
+
+        if (attributeNames.length < 1) {
+            throw new IllegalArgumentException("At least one attribute name is required for querying attribute ownership.");
+        }
+
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.name.equals(instanceName));
+        if (objectInstance != null) {
+            HLAObjectClass objectClass = objectInstance.objectClass;
+            AttributeHandleSet set = objectClass.getAttributeHandles(attributeNames);
+
+            FutureTask<Map<String, String>> task = new FutureTask<>(() -> {
+                Map<AttributeHandle, String> queryResult = this.callbackManager.invokeAttributeOwnershipQuery(objectInstance.handle, set).get();
+                Map<String, String> attributeNameToOwnerName = new HashMap<>();
+
+                queryResult.forEach((attributeHandle, ownerName) -> {
+                    String attributeName = objectClass.getAttributeName(attributeHandle);
+                    attributeNameToOwnerName.put(attributeName, ownerName);
+                });
+
+                return attributeNameToOwnerName;
+            });
+
+            this.executor.submit(task);
+            return task;
+        } else {
+            return null;
+        }
+    }
+
+    public void acquireAttributeOwnership(String instanceName, String... attributeNames) throws FederateNotExecutionMember, ObjectClassNotPublished, AttributeNotDefined, RestoreInProgress, FederateOwnsAttributes, NotConnected, RTIinternalError, AttributeNotPublished, SaveInProgress, ObjectInstanceNotKnown {
+        if (instanceName == null || attributeNames == null) {
+            throw new IllegalArgumentException("Cannot attempt to acquire attribute ownership since a NULL reference was passed in for one of the arguments.");
+        }
+
+        if (attributeNames.length < 1) {
+            throw new IllegalArgumentException("At least one attribute name is required for attempting attribute ownership acquisition.");
+        }
+
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.name.equals(instanceName));
+        if (objectInstance != null) {
+            HLAObjectClass objectClass = objectInstance.objectClass;
+            AttributeHandleSet set = objectClass.getAttributeHandles(attributeNames);
+
+            rtiAmbassador.attributeOwnershipAcquisition(objectInstance.handle, set, null);
+        }
+    }
+
+    public void divestAttributeOwnershipIfWanted(Object proxy, String... attributeNames) throws FederateNotExecutionMember, AttributeNotDefined, RestoreInProgress, AttributeNotOwned, ObjectInstanceNotKnown, NotConnected, RTIinternalError, SaveInProgress {
+        if (proxy == null || attributeNames == null) {
+            throw new IllegalArgumentException("Cannot divest attribute ownership since a NULL reference was passed in for one of the arguments.");
+        }
+
+        if (attributeNames.length < 1) {
+            throw new IllegalArgumentException("At least one attribute name is required for divesting attribute ownership.");
+        }
+
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.proxy.equals(proxy));
+        if (objectInstance != null) {
+            HLAObjectClass objectClass = objectInstance.objectClass;
+            AttributeHandleSet set = objectClass.getAttributeHandles(attributeNames);
+            rtiAmbassador.attributeOwnershipDivestitureIfWanted(objectInstance.handle, set, null);
+        }
+    }
+
+    public void notifyAttributeOwnershipReleaseRequested(ObjectInstanceHandle instanceHandle, AttributeHandleSet candidateAttributes) {
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.handle.equals(instanceHandle));
+
+        if (objectInstance != null) {
+            HLAObjectClass objectClass = objectInstance.objectClass;
+            Set<String> candidateAttributeNames = objectClass.getAttributeNames(candidateAttributes);
+
+            this.instanceNameToAttributeOwnershipListeners
+                    .get(objectInstance)
+                    .forEach(listener -> listener.releaseRequested(candidateAttributeNames));
+        } else {
+            logger.warn("Missed attribute ownership release request for object instance <{}>.", instanceHandle);
+        }
+    }
+
+    public void notifyAttributeOwnershipAcquired(ObjectInstanceHandle instanceHandle, AttributeHandleSet attributes, boolean outcome) {
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.handle.equals(instanceHandle));
+
+        if (objectInstance != null) {
+            HLAObjectClass objectClass = objectInstance.objectClass;
+            Set<String> attributeNames = objectClass.getAttributeNames(attributes);
+
+            this.instanceNameToAttributeOwnershipListeners
+                    .get(objectInstance)
+                    .forEach(listener -> listener.secured(outcome, attributeNames));
+        } else {
+            logger.warn("Missed attribute ownership secured notification for object instance <{}>.", instanceHandle);
+        }
+    }
+
+    public void addAttributeOwnershipListener(Object proxy, AttributeOwnershipListener listener) {
+        if (proxy == null || listener == null) {
+            return;
+        }
+
+        ObjectInstance objectInstance = getObjectInstance(instance -> instance.proxy.equals(proxy));
+        this.instanceNameToAttributeOwnershipListeners
+                .computeIfAbsent(objectInstance, set -> new HashSet<>())
+                .add(listener);
+    }
+
+    public void removeAttributeOwnershipListener(AttributeOwnershipListener listener) {
+        for (Map.Entry<ObjectInstance, Set<AttributeOwnershipListener>> entry : this.instanceNameToAttributeOwnershipListeners.entrySet()) {
+            ObjectInstance instance = entry.getKey();
+            Set<AttributeOwnershipListener> listeners = entry.getValue();
+
+            if (listeners.contains(listener)) {
+                listeners.remove(listener);
+
+                if (listeners.isEmpty()) {
+                    this.instanceNameToAttributeOwnershipListeners.remove(instance);
+                }
+
+                break;
+            }
+        }
+    }
+
     public static final class ObjectInstance {
 
         private final HLAObjectClass objectClass;
@@ -464,10 +590,6 @@ public final class HLAObjectManager {
             this.proxy = proxy;
 
             this.pcs = new PropertyChangeSupport(this);
-        }
-
-        String getName() {
-            return this.name;
         }
 
         Object getProxy() {

@@ -75,14 +75,16 @@ public final class SyncPointManager {
             return;
         }
 
-        this.labelToListeners.computeIfAbsent(label, set -> new HashSet<>());
-        this.labelToListeners.get(label).add(listener);
+        this.labelToListeners
+                .computeIfAbsent(label, set -> new HashSet<>())
+                .add(listener);
     }
 
     public void removeSyncPointListener(SyncPointListener listener) {
         for (Map.Entry<String, Set<SyncPointListener>> entry : this.labelToListeners.entrySet()) {
             String label = entry.getKey();
             Set<SyncPointListener> listeners = entry.getValue();
+
             if (listeners.contains(listener)) {
                 listeners.remove(listener);
 

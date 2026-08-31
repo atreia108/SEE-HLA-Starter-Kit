@@ -5,10 +5,11 @@ import org.apache.commons.geometry.euclidean.threed.Vector3D;
 import org.see.baseplate.encoding.SpaceTimeCoordinateState;
 import org.see.baseplate.models.PhysicalEntity;
 import org.see.baseplate.models.PhysicalInterface;
-import org.see.baseplate.models.ReferenceFrame;
+import org.see.skf.core.AttributeOwnershipListener;
 import org.see.skf.core.SEEFederate;
 
 import java.io.File;
+import java.util.Set;
 
 public final class TestFederate extends SEEFederate {
 
@@ -41,11 +42,32 @@ public final class TestFederate extends SEEFederate {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        addAttributeOwnershipListener(this.spaceport, new AttributeOwnershipListener() {
+            @Override
+            public void releaseRequested(Set<String> candidateAttributeNames) {
+                System.out.println("The following attributes been requested for release:");
+                candidateAttributeNames.forEach(System.out::println);
+
+                try {
+                    divestAttributeOwnershipIfWanted(spaceport, "name", "type", "HLAprivilegeToDeleteObject");
+                } catch (RTIexception e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            public void secured(boolean outcome, Set<String> securedAttributeNames) {
+                // Ignore.
+            }
+        });
     }
 
     @Override
     public void processRunJobs() throws RTIexception {
+        /*
         updateSpaceport();
+         */
     }
 
     private void updateSpaceport() throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
