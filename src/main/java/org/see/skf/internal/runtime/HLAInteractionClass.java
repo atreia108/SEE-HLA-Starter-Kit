@@ -168,17 +168,11 @@ final class HLAInteractionClass {
         return map;
     }
 
-    void send(Object proxy) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
+    void send(Object proxy) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress, InteractionClassNotDefined, InteractionClassNotPublished, InteractionParameterNotDefined {
         ParameterHandleValueMap map = serialize(proxy, this.parameterValues);
 
-        try {
-            rtiAmbassador.sendInteraction(this.handle, map, null);
-            logger.debug("Sent an interaction of class <{}>.", this.name);
-        } catch (InteractionClassNotPublished | InteractionClassNotDefined e) {
-            throw new RuntimeException(e);
-        } catch (InteractionParameterNotDefined e) {
-            throw new SendInteractionException("One or more undefined parameters exist for this model using the HLA interaction class <" + this.name + ">.");
-        }
+        rtiAmbassador.sendInteraction(this.handle, map, null);
+        logger.debug("Sent an interaction of class <{}>.", this.name);
 
         this.parameterValues.clear();
     }

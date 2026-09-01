@@ -33,12 +33,12 @@ public final class TestFederate extends SEEFederate {
         this.spaceport = new PhysicalEntity();
         this.spaceport.setAcceleration(Vector3D.of(1, 1, 1));
         try {
-            createObjectInstance("HLAobjectRoot.PhysicalEntity", "brunel_spaceport", this.spaceport).get();
-            createObjectInstance("HLAobjectRoot.PhysicalInterface", "brunel_spaceport_arm", new PhysicalInterface()).get();
-            createObjectInstance("HLAobjectRoot.PhysicalInterface", "brunel_spaceport_leg_1", new PhysicalInterface()).get();
-            createObjectInstance("HLAobjectRoot.PhysicalInterface", "brunel_spaceport_leg_2", new PhysicalInterface()).get();
-            createObjectInstance("HLAobjectRoot.PhysicalInterface", "brunel_spaceport_leg_3", new PhysicalInterface()).get();
-            createObjectInstance("HLAobjectRoot.PhysicalInterface", "brunel_spaceport_leg_4", new PhysicalInterface()).get();
+            createObjectInstance(this.spaceport, "brunel_spaceport").get();
+            createObjectInstance(new PhysicalInterface(), "brunel_spaceport_arm").get();
+            createObjectInstance(new PhysicalInterface(), "brunel_spaceport_leg_1").get();
+            createObjectInstance( new PhysicalInterface(), "brunel_spaceport_leg_2").get();
+            createObjectInstance(new PhysicalInterface(), "brunel_spaceport_leg_3").get();
+            createObjectInstance(new PhysicalInterface(), "brunel_spaceport_leg_4").get();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -70,7 +70,7 @@ public final class TestFederate extends SEEFederate {
          */
     }
 
-    private void updateSpaceport() throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
+    private void updateSpaceport() throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress, AttributeNotDefined, ObjectInstanceNotKnown {
         SpaceTimeCoordinateState state = this.spaceport.getState();
         Vector3D pos = state.getPosition();
         Vector3D newPos = pos.add(this.spaceport.getAcceleration());

@@ -245,17 +245,17 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
-    public final String createObjectInstance(String objectClassName, Object objectInstance) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        return this.objectManager.createObjectInstance(objectClassName, objectInstance);
+    public final String createObjectInstance(Object objectInstance) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        return this.objectManager.createObjectInstance(objectInstance);
     }
 
     @Override
-    public final Future<Void> createObjectInstance(String objectClassName, String name, Object objectInstance) {
-        return this.objectManager.createObjectInstance(objectClassName, name, objectInstance);
+    public final Future<Void> createObjectInstance(Object objectInstance, String name) {
+        return this.objectManager.createObjectInstance(objectInstance, name);
     }
 
     @Override
-    public final void updateObjectInstance(Object objectInstance, String... attributes) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
+    public final void updateObjectInstance(Object objectInstance, String... attributes) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress, AttributeNotDefined, ObjectInstanceNotKnown {
         this.objectManager.updateObjectInstance(objectInstance, attributes);
     }
 
@@ -330,7 +330,7 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
-    public final void sendInteraction(Object interaction) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    public final void sendInteraction(Object interaction) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, InteractionClassNotDefined, InteractionClassNotPublished, InteractionParameterNotDefined {
         this.interactionManager.sendInteraction(interaction);
     }
 

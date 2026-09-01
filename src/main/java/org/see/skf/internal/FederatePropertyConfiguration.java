@@ -86,8 +86,9 @@ public final class FederatePropertyConfiguration implements SKFederateConfigurat
         String lookaheadValue = configProperties.getProperty(LOOKAHEAD_PROPERTY);
         this.lookahead = getIntegerParameterValue(lookaheadValue);
 
-        int maxThreadsValue = (int) getIntegerParameterValue(configProperties.getProperty(MAX_THREADS));
-        this.maxThreads = maxThreadsValue < 8 ? DEFAULT_MAX_THREADS : maxThreadsValue;
+        String maxThreadsValue = configProperties.getProperty(MAX_THREADS);
+        this.maxThreads = maxThreadsValue != null && getIntegerParameterValue(maxThreadsValue) >= 8 ? (int) getIntegerParameterValue(maxThreadsValue) : DEFAULT_MAX_THREADS;
+
         logger.debug("Using {} threads for managing federate callbacks.", this.maxThreads);
 
         String fomDir = configProperties.getProperty(FOM_DIRECTORY_PROPERTY);

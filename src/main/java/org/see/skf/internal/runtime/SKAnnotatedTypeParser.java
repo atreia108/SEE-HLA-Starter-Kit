@@ -44,6 +44,28 @@ public final class SKAnnotatedTypeParser {
         this.coderManager = coderManager;
     }
 
+    public String getInstanceProxyFomName(Class<?> clazz) {
+        isNull(clazz);
+
+        ObjectClass fomNameAnnotation = clazz.getAnnotation(ObjectClass.class);
+        if (fomNameAnnotation == null) {
+            throw new AnnotationParseException("No @ObjectClass annotation attached for <" + clazz.getName() + ">.");
+        }
+
+        return fomNameAnnotation.name();
+    }
+
+    public String getInteractionProxyFomName(Class<?> clazz) {
+        isNull(clazz);
+
+        InteractionClass fomNameAnnotation = clazz.getAnnotation(InteractionClass.class);
+        if (fomNameAnnotation == null) {
+            throw new AnnotationParseException("No @InteractionClass annotation attached for <" + clazz.getName() + ">.");
+        }
+
+        return fomNameAnnotation.name();
+    }
+
     public Metadata parseObjectInstanceProxy(Class<?> proxyClass) {
         isNull(proxyClass);
         return buildObjectInstanceStructure(proxyClass);

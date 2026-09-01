@@ -133,7 +133,7 @@ public final class HLAInteractionManager {
         }
     }
 
-    public void sendInteraction(Object proxy) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    public void sendInteraction(Object proxy) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, InteractionClassNotDefined, InteractionClassNotPublished, InteractionParameterNotDefined {
         if (proxy == null) {
             throw new IllegalArgumentException("The object representing the interaction to be sent must not be null.");
         }
@@ -141,7 +141,8 @@ public final class HLAInteractionManager {
         Class<?> proxyClass = proxy.getClass();
         HLAInteractionClass interactionClass = getInteractionClass(proxyClass);
         if (interactionClass == null) {
-            throw new IllegalArgumentException("No HLA interaction class has been assigned the class <" + proxyClass.getName() + "> for serializing data.");
+            String interactionClassName = this.parser.getInteractionProxyFomName(proxyClass);
+            throw new IllegalArgumentException("Cannot send interaction because the class <" + interactionClassName + "> has not been published yet.");
         } else {
             interactionClass.send(proxy);
         }

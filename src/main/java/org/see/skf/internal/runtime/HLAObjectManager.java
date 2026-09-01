@@ -153,8 +153,8 @@ public final class HLAObjectManager {
                 .orElse(null);
     }
 
-    public Future<Void> createObjectInstance(String objectClassName, String instanceName, Object proxy) {
-        if (objectClassName == null || instanceName == null || proxy == null) {
+    public Future<Void> createObjectInstance(Object proxy, String instanceName) {
+        if (instanceName == null || proxy == null) {
             throw new IllegalArgumentException("Cannot create HLA object instance because one or more NULL references were passed as argument(s).");
         }
 
@@ -162,7 +162,8 @@ public final class HLAObjectManager {
             throw new IllegalArgumentException("Cannot create the object instance <" + instanceName + "> because it already exists.");
         }
 
-        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(objectClassName) && objClass.getProxyClass().equals(proxy.getClass()));
+        String objectClassName = this.parser.getInstanceProxyFomName(proxy.getClass());
+        HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(objectClassName) /* && objClass.getProxyClass().equals(proxy.getClass())*/ );
         if (objectClass == null) {
             throw new IllegalArgumentException("Cannot create the object instance <" + instanceName + "> because its object class <" + objectClassName + "> may not have been declared yet or the provided object instance class is not of the same type.");
         }
@@ -196,11 +197,12 @@ public final class HLAObjectManager {
         }
     }
 
-    public String createObjectInstance(String objectClassName, Object proxy) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        if (objectClassName == null || proxy == null) {
+    public String createObjectInstance(Object proxy) throws FederateNotExecutionMember, ObjectClassNotPublished, ObjectClassNotDefined, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        if (proxy == null) {
             throw new IllegalArgumentException("Cannot create HLA object instance because one or more NULL references were passed as argument(s).");
         }
 
+        String objectClassName = this.parser.getInstanceProxyFomName(proxy.getClass());
         HLAObjectClass objectClass = getObjectClass(objClass -> objClass.getName().equals(objectClassName));
         if (objectClass == null) {
             throw new IllegalArgumentException("Cannot create the object instance because its object class <" + objectClassName + "> has not been declared yet.");
@@ -221,13 +223,9 @@ public final class HLAObjectManager {
         return assignedName;
     }
 
-    public void updateObjectInstance(Object proxy, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
+    public void updateObjectInstance(Object proxy, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress, AttributeNotDefined, ObjectInstanceNotKnown {
         if (proxy == null) {
             throw new IllegalArgumentException("The object instance reference passed in as argument cannot be NULL.");
-        }
-
-        if (attributeNames == null || attributeNames.length < 1) {
-            throw new IllegalArgumentException("One or more attributes are required to be passed in as argument for the object instance updates to be sent.");
         }
 
         ObjectInstance objectInstance = getObjectInstance(instance -> instance.proxy.equals(proxy));
@@ -235,7 +233,7 @@ public final class HLAObjectManager {
             throw new IllegalArgumentException("The provided object is not associated with any known object instances that were previously created.");
         }
 
-        objectInstance.objectClass.provideUpdate(objectInstance.handle, objectInstance.proxy, attributeNames);
+        objectInstance.objectClass.updateAttributeValues(objectInstance.handle, objectInstance.proxy, attributeNames);
     }
 
     public void destroyObjectInstance(Object proxy) throws FederateNotExecutionMember, RestoreInProgress, DeletePrivilegeNotHeld, NotConnected, RTIinternalError, SaveInProgress {

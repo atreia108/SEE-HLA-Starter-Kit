@@ -223,24 +223,33 @@ final class HLAObjectClass {
         return sb.toString();
     }
 
-    void provideUpdate(ObjectInstanceHandle instanceHandle, Object proxy, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
+    void updateAttributeValues(ObjectInstanceHandle instanceHandle, Object proxy, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress, AttributeNotDefined, ObjectInstanceNotKnown {
         this.attributeValues.clear();
 
-        for (String attributeName : attributeNames) {
-            Attribute attribute = getAttribute(a -> a.name.equals(attributeName));
-            if (attribute != null /* && attribute.published.get() */) {
-                Trait t = this.attributeToTrait.get(attribute);
-                byte[] encodedValue = t.encode(proxy);
+        if (attributeNames == null || attributeNames.length < 1) {
+            for (Map.Entry<Attribute, Trait> entry : this.attributeToTrait.entrySet()) {
+                Attribute attribute = entry.getKey();
+                Trait t = entry.getValue();
 
-                this.attributeValues.put(attribute.handle, encodedValue);
+                // Edge-case for the HLAprivilegeToDeleteObject attribute which has no corresponding trait in the map.
+                if (t != null) {
+                    byte[] encodedValue = t.encode(proxy);
+                    this.attributeValues.put(attribute.handle, encodedValue);
+                }
+            }
+        } else {
+            for (String attributeName : attributeNames) {
+                Attribute attribute = getAttribute(a -> a.name.equals(attributeName));
+                if (attribute != null /* && attribute.published.get() */) {
+                    Trait t = this.attributeToTrait.get(attribute);
+                    byte[] encodedValue = t.encode(proxy);
+
+                    this.attributeValues.put(attribute.handle, encodedValue);
+                }
             }
         }
 
-        try {
-            rtiAmbassador.updateAttributeValues(instanceHandle, this.attributeValues, null);
-        } catch (AttributeNotDefined | ObjectInstanceNotKnown e) {
-            throw new ObjectInstanceUpdateException("Could not update object instance <" + proxy + ">.", e);
-        }
+        rtiAmbassador.updateAttributeValues(instanceHandle, this.attributeValues, null);
     }
 
     void provideUpdate(ObjectInstanceHandle instanceHandle, Object proxy, AttributeHandleSet requestedAttributes) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
