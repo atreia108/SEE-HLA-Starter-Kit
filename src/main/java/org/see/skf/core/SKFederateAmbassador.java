@@ -40,8 +40,9 @@ import org.see.skf.internal.runtime.HLAObjectManager;
 import java.util.concurrent.ExecutorService;
 
 /**
+ * The federate ambassador internally used by {@link SKAbstractFederate} to handle RTI callbacks.
  *
- * @since 2.1
+ * @since 2.0
  */
 final class SKFederateAmbassador extends NullFederateAmbassador {
 

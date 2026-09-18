@@ -132,8 +132,8 @@ public abstract class SEEAbstractFederate extends SKAbstractFederate {
 
     /**
      * Register all object instances that this federate will manage during the federation execution. Choosing not to
-     * create all of your required object instance here does not preclude doing it elsewhere, however, this has its own
-     * dedicated method as per the SRFOM standard's guidance for late joiner initialization.
+     * register all of your required object instance here does not preclude registration elsewhere, however, as per the
+     * SRFOM standard's guidance for late joiner initialization, it is advised to perform all registrations in this method.
      */
     protected abstract void declareObjectInstances() throws RTIexception;
 
