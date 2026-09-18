@@ -34,15 +34,23 @@ import java.io.File;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-public abstract class SEEFederate extends SKFederateBase {
+/**
+ * A SRFOM-compliant late joiner implementation that automatically performs initialization, executive mode transitions, and
+ * termination. It is highly recommended that SEE participants utilize this class as the starting point for building
+ * federates.
+ *
+ * @since 2.0
+ * @see org.see.skf.core.SKFederate
+ */
+public abstract class SEEAbstractFederate extends SKAbstractFederate {
 
-    private static final Logger logger = LoggerFactory.getLogger(SEEFederate.class);
+    private static final Logger logger = LoggerFactory.getLogger(SEEAbstractFederate.class);
     private static final long OBJECT_DISCOVERY_WAITING_TIME = 32L;
 
     private final String[] requiredObjectInstanceNames;
     private final CountDownLatch latch;
 
-    protected SEEFederate(File configurationFile, String... requiredObjectInstanceNames) {
+    protected SEEAbstractFederate(File configurationFile, String... requiredObjectInstanceNames) {
         super(configurationFile);
 
         if (requiredObjectInstanceNames == null) {
@@ -75,14 +83,14 @@ public abstract class SEEFederate extends SKFederateBase {
         exec();
     }
 
-    private void declareSRFOMExecutiveClasses() throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    private void declareSRFOMExecutiveClasses() throws RTIexception {
         subscribeObjectClass(ExecutionConfiguration.class, "root_frame_name", "scenario_time_epoch", "current_execution_mode", "next_execution_mode", "next_mode_scenario_time", "next_mode_cte_time", "least_common_time_step");
         publishInteractionClass(ModeTransitionRequest.class);
     }
 
     private void createRequiredObjectInstanceListeners() {
         for (String requiredObjectName : this.requiredObjectInstanceNames) {
-            addRemoteObjectInstanceListener(requiredObjectName, new RemoteObjectInstanceListener() {
+            addObjectInstanceListener(requiredObjectName, new ObjectInstanceListener() {
                 @Override
                 public void discovered(String producingFederateName) {
                     latch.countDown();
@@ -116,8 +124,17 @@ public abstract class SEEFederate extends SKFederateBase {
         }
     }
 
+    /**
+     * Declare i.e., publish/subscribe all HLA object and interaction classes that this federate is interested in.
+     * This method is called during the federate's initialization procedure.
+     */
     protected abstract void declareClasses() throws RTIexception;
 
+    /**
+     * Register all object instances that this federate will manage during the federation execution. Choosing not to
+     * create all of your required object instance here does not preclude doing it elsewhere, however, this has its own
+     * dedicated method as per the SRFOM standard's guidance for late joiner initialization.
+     */
     protected abstract void declareObjectInstances() throws RTIexception;
 
 }

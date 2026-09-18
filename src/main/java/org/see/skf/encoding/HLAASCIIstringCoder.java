@@ -30,6 +30,12 @@ import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAASCIIstring;
 
+/**
+ * Coder implementation for the HLAASCIIStringCoder data type.
+ *
+ * @see HLAASCIIstring
+ * @since 1.0
+ */
 public final class HLAASCIIstringCoder implements Coder<String> {
 
     private final HLAASCIIstring stringType;

@@ -30,6 +30,12 @@ import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAbyte;
 
+/**
+ * Coder implementation for the HLAbyte data type.
+ *
+ * @see HLAbyte
+ * @since 1.0
+ */
 public final class HLAbyteCoder implements Coder<Byte> {
 
     private final HLAbyte byteType;

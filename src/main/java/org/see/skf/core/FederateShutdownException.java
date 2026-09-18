@@ -26,6 +26,11 @@
 
 package org.see.skf.core;
 
+/**
+ * Unchecked exception thrown when the federate encounters a problem while attempting termination.
+ *
+ * @since 2.1
+ */
 public final class FederateShutdownException extends RuntimeException {
 
     FederateShutdownException(String message, Throwable cause) {

@@ -29,9 +29,15 @@ package org.see.skf.encoding;
 import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAinteger16LE;
-import org.see.skf.core.ModeTransitionRequest;
+import org.see.skf.core.MTRMode;
 
-public final class MTRModeCoder implements Coder<ModeTransitionRequest.MTRMode> {
+/**
+ * Coder implementation for the MTRMode data type.
+ *
+ * @see MTRMode
+ * @since 1.0
+ */
+public final class MTRModeCoder implements Coder<MTRMode> {
 
     private final HLAinteger16LE executionModeType;
 
@@ -40,13 +46,13 @@ public final class MTRModeCoder implements Coder<ModeTransitionRequest.MTRMode> 
     }
 
     @Override
-    public ModeTransitionRequest.MTRMode decode(byte[] buffer) throws DecoderException {
+    public MTRMode decode(byte[] buffer) throws DecoderException {
         this.executionModeType.decode(buffer);
-        return ModeTransitionRequest.MTRMode.query(this.executionModeType.getValue());
+        return MTRMode.query(this.executionModeType.getValue());
     }
 
     @Override
-    public byte[] encode(ModeTransitionRequest.MTRMode element) {
+    public byte[] encode(MTRMode element) {
         this.executionModeType.setValue(element.getValue());
         return this.executionModeType.toByteArray();
     }

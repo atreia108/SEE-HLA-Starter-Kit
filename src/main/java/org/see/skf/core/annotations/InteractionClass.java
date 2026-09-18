@@ -29,15 +29,18 @@ package org.see.skf.core.annotations;
 import java.lang.annotation.*;
 
 /**
- * TBA
+ * Designates a class as an HLA interaction class.
  *
  * @see Parameter
  * @see ObjectClass
- * @since 1.5
+ * @since 1.0
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 @Inherited
 public @interface InteractionClass {
+    /**
+     * The name of the interaction class in the Federation Object Model (FOM).
+     */
     String name();
 }

@@ -29,27 +29,18 @@ package org.see.skf.core.annotations;
 import java.lang.annotation.*;
 
 /**
- * <p>
- * A class bearing this annotation is treated as the representation of an HLA object class. A subclass automatically
- * inherits the parent's definition of the annotation along with attribute definitions.
- * </p>
- * <p>
- * If an attempt is made to re-declare an object class (i.e., publish/subscribe) with attributes that were not previously
- * specified in the {@code publishableAttributes} and {@code subscribableAttributes}, the federate will automatically declare those attributes to the RTI.
- * </p>
+ * Designates a class as an HLA object class.
  *
  * @see Attribute
  * @see InteractionClass
- * @since 1.5
+ * @since 1.0
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 @Inherited
 public @interface ObjectClass {
     /**
-     * Name of the HLA object class as defined in the FOM.
-     *
-     * @return The HLA object class name.
+     * The name of the object class in the Federation Object Model (FOM).
      */
     String name();
 }

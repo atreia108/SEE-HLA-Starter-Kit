@@ -34,23 +34,23 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Aa.
+ * Designates a class field as an attribute of an HLA object class.
  *
  * @see ObjectClass
- * @since 1.5
+ * @since 1.0
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
 public @interface Attribute {
     /**
-     *
-     * @return
+     * The name of the object class attribute in the Federation Object Model (FOM).
      */
     String name();
 
     /**
+     * The coder used to encode/decode this field.
      *
-     * @return
+     * @see Coder
      */
     Class<? extends Coder<?>> coder();
 }

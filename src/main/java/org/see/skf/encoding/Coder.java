@@ -28,6 +28,16 @@ package org.see.skf.encoding;
 
 import hla.rti1516_2025.encoding.DecoderException;
 
+/**
+ * An object that represents how an arbitrary data type should be converted to an equivalent HLA data type.
+ *
+ * <p>
+ * Concrete implementations of this interface must have a constructor that takes in <code>hla.rti1516_2025.encoding.EncoderFactory</code>
+ * as the only argument and specifies exactly how the data is encoded/decoded in its method implementations.
+ * </p>
+ *
+ * @since 1.0
+ */
 public interface Coder<T> {
     byte[] encode(T data);
     T decode (byte[] data) throws DecoderException;

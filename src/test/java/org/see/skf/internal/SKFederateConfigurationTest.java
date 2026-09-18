@@ -24,12 +24,11 @@
  If not, see http://http://www.gnu.org/licenses/
  *****************************************************************/
 
-package org.see.skf.core;
+package org.see.skf.internal;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.see.skf.internal.FederatePropertyConfiguration;
-import org.see.skf.internal.InvalidFederateConfigurationException;
-import org.see.skf.internal.SKFederateConfiguration;
+import org.see.skf.core.SKFederate;
 
 import java.io.*;
 
@@ -56,7 +55,7 @@ class SKFederateConfigurationTest {
         assertEquals("SEE 2027", config.federationName());
         assertEquals("Spaceport", config.federateName());
         assertEquals("Behavior", config.federateType());
-        assertEquals(SKFederate.Role.LATE, config.federateRole());
+        Assertions.assertEquals(SKFederate.Role.LATE, config.federateRole());
         assertEquals(1000000, config.lookahead());
         assertEquals(8, config.maxThreads());
         assertTrue(areFomModulesValid(config.additionalFomModules()));

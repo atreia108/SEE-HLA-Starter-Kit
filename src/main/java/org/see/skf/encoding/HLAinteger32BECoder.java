@@ -30,6 +30,12 @@ import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAinteger32BE;
 
+/**
+ * Coder implementation for the HLAinteger32BE data type.
+ *
+ * @see HLAinteger32BE
+ * @since 1.0
+ */
 public final class HLAinteger32BECoder implements Coder<Integer> {
 
     private final HLAinteger32BE int32type;
@@ -40,13 +46,13 @@ public final class HLAinteger32BECoder implements Coder<Integer> {
 
     @Override
     public Integer decode(byte[] buffer) throws DecoderException {
-        int32type.decode(buffer);
+        this.int32type.decode(buffer);
         return int32type.getValue();
     }
 
     @Override
     public byte[] encode(Integer element) {
-        int32type.setValue(element);
+        this.int32type.setValue(element);
         return int32type.toByteArray();
     }
 }

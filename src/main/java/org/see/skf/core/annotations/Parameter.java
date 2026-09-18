@@ -34,15 +34,23 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * TBA
+ * Designates a class field as a parameter of an HLA interaction class.
  *
  * @see InteractionClass
- * @since 1.5
+ * @since 1.0
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
 public @interface Parameter {
+    /**
+     * The name of the interaction class parameter in the Federation Object Model (FOM).
+     */
     String name();
 
+    /**
+     * The coder used to encode/decode this field.
+     *
+     * @see Coder
+     */
     Class<? extends Coder<?>> coder();
 }

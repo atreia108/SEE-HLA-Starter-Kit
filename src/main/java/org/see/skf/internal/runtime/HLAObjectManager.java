@@ -29,7 +29,7 @@ package org.see.skf.internal.runtime;
 import hla.rti1516_2025.*;
 import hla.rti1516_2025.exceptions.*;
 import org.see.skf.core.AttributeOwnershipListener;
-import org.see.skf.core.RemoteObjectInstanceListener;
+import org.see.skf.core.ObjectInstanceListener;
 import org.see.skf.internal.HLAUtilityFactory;
 import org.see.skf.internal.callbacks.FederateCallbackManager;
 import org.see.skf.internal.callbacks.NameReservationException;
@@ -58,7 +58,7 @@ public final class HLAObjectManager {
     private final Set<HLAObjectClass> objectClasses;
     private final Set<ObjectInstance> objectInstances;
 
-    private final Map<String, Set<RemoteObjectInstanceListener>> remoteInstanceNameToListeners;
+    private final Map<String, Set<ObjectInstanceListener>> remoteInstanceNameToListeners;
     private final Set<ObjectInstanceHandle> instancesPendingInitialValues;
     private final Map<ObjectInstance, Set<AttributeOwnershipListener>> instanceNameToAttributeOwnershipListeners;
 
@@ -93,7 +93,7 @@ public final class HLAObjectManager {
                 .build();
     }
 
-    public void publishObjectClass(Class<?> proxyClass, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
+    public void publishObjectClass(Class<?> proxyClass, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress, AttributeNotDefined, ObjectClassNotDefined {
         if (proxyClass == null) {
             throw new IllegalArgumentException("Class representing how instances of the HLA object class should be interpreted by the federate cannot be NULL.");
         } else if (attributeNames == null || attributeNames.length < 1) {
@@ -109,14 +109,14 @@ public final class HLAObjectManager {
         objectClass.publishAttributes(attributeNames);
     }
 
-    public void unpublishObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, OwnershipAcquisitionPending, NotConnected, RTIinternalError, SaveInProgress {
+    public void unpublishObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, OwnershipAcquisitionPending, NotConnected, RTIinternalError, SaveInProgress, ObjectClassNotDefined, AttributeNotDefined {
         HLAObjectClass objectClass;
         if ((objectClass = getObjectClass(objClass -> objClass.getName().equals(name))) != null) {
             objectClass.unpublishAttributes(attributeNames);
         }
     }
 
-    public void subscribeObjectClass(Class<?> proxyClass, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
+    public void subscribeObjectClass(Class<?> proxyClass, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress, AttributeNotDefined, ObjectClassNotDefined {
         if (proxyClass == null) {
             throw new IllegalArgumentException("Class representing how instances of the HLA object class should be interpreted by the federate cannot be NULL.");
         } else if (attributeNames == null || attributeNames.length < 1) {
@@ -132,7 +132,7 @@ public final class HLAObjectManager {
         objectClass.subscribeAttributes(attributeNames);
     }
 
-    public void unsubscribeObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    public void unsubscribeObjectClass(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, AttributeNotDefined, ObjectClassNotDefined {
         HLAObjectClass objectClass;
         if ((objectClass = getObjectClass(objClass -> objClass.getName().equals(name))) != null) {
             objectClass.unsubscribeAttributes(attributeNames);
@@ -305,7 +305,7 @@ public final class HLAObjectManager {
     }
 
     private void notifyRemoteObjectInstanceDiscovered(String name, String producingFederateName) {
-        Set<RemoteObjectInstanceListener> listeners = this.remoteInstanceNameToListeners.get(name);
+        Set<ObjectInstanceListener> listeners = this.remoteInstanceNameToListeners.get(name);
 
         if (!listeners.isEmpty()) {
             listeners.forEach(listener -> listener.discovered(producingFederateName));
@@ -313,7 +313,7 @@ public final class HLAObjectManager {
     }
 
     private void notifyRemoteObjectInstanceInitialized(String name, Object proxy) {
-        Set<RemoteObjectInstanceListener> listeners = this.remoteInstanceNameToListeners.get(name);
+        Set<ObjectInstanceListener> listeners = this.remoteInstanceNameToListeners.get(name);
 
         if (!listeners.isEmpty()) {
             listeners.forEach(listener -> listener.initialized(proxy));
@@ -321,7 +321,7 @@ public final class HLAObjectManager {
     }
 
     private void notifyRemoteObjectInstanceDestroyed(String name, String producingFederateName) {
-        Set<RemoteObjectInstanceListener> listeners = this.remoteInstanceNameToListeners.get(name);
+        Set<ObjectInstanceListener> listeners = this.remoteInstanceNameToListeners.get(name);
 
         if (!listeners.isEmpty()) {
             listeners.forEach(listener -> listener.destroyed(producingFederateName));
@@ -376,7 +376,7 @@ public final class HLAObjectManager {
         }
     }
 
-    public void addObjectInstanceListener(String objectInstanceName, RemoteObjectInstanceListener listener) {
+    public void addObjectInstanceListener(String objectInstanceName, ObjectInstanceListener listener) {
         if (objectInstanceName == null || listener == null) {
             return;
         }
@@ -385,10 +385,10 @@ public final class HLAObjectManager {
         this.remoteInstanceNameToListeners.get(objectInstanceName).add(listener);
     }
 
-    public void removeObjectInstanceListener(RemoteObjectInstanceListener listener) {
-        for (Map.Entry<String, Set<RemoteObjectInstanceListener>> entry : this.remoteInstanceNameToListeners.entrySet()) {
+    public void removeObjectInstanceListener(ObjectInstanceListener listener) {
+        for (Map.Entry<String, Set<ObjectInstanceListener>> entry : this.remoteInstanceNameToListeners.entrySet()) {
             String objectInstanceName = entry.getKey();
-            Set<RemoteObjectInstanceListener> listeners = entry.getValue();
+            Set<ObjectInstanceListener> listeners = entry.getValue();
 
             if (listeners.contains(listener)) {
                 listeners.remove(listener);

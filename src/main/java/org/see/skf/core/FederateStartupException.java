@@ -27,10 +27,8 @@
 package org.see.skf.core;
 
 /**
- * Unchecked exception thrown when key processes associated with federate startup: loading configuration file and getting
- * HLA objects i.e., the RTI ambassador and encoder factory yields problems.
+ * Unchecked exception thrown when the federate encounters a problem while attempting to begin execution.
  *
- * @author Hridyanshu Aatreya
  * @since 2.1
  */
 public final class FederateStartupException extends RuntimeException {

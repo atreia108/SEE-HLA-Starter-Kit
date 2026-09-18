@@ -28,7 +28,8 @@ package org.see.skf.internal.executive;
 
 import hla.rti1516_2025.exceptions.*;
 import org.see.skf.core.*;
-import org.see.skf.core.ExCONotInitializedException;
+import org.see.skf.internal.ExCONotInitializedException;
+import org.see.skf.core.ExecutionMode;
 import org.see.skf.internal.SRFOMSynchronizationPoint;
 import org.see.skf.internal.TimeManager;
 import org.slf4j.Logger;
@@ -40,10 +41,10 @@ public final class RunState implements TransitiveState {
 
     private static final Logger logger = LoggerFactory.getLogger(RunState.class);
 
-    private final SKFederateBase federate;
+    private final SKAbstractFederate federate;
     private final TimeManager timeManager;
 
-    public RunState(SKFederateBase federate, TimeManager timeManager) {
+    public RunState(SKAbstractFederate federate, TimeManager timeManager) {
         this.federate = federate;
         this.timeManager = timeManager;
     }
@@ -56,7 +57,7 @@ public final class RunState implements TransitiveState {
 
             this.federate.addSyncPointListener(SRFOMSynchronizationPoint.MTR_FREEZE.getLabel(), listener);
 
-            ExecutionConfiguration exCO = (ExecutionConfiguration) this.federate.queryRemoteObjectInstance("ExCO");
+            ExecutionConfiguration exCO = (ExecutionConfiguration) this.federate.queryObjectInstance("ExCO");
             if (exCO == null) {
                 throw new ExCONotInitializedException("Cannot perform federate executive state transition as ExCO object instance values could not be retrieved in time.");
             }

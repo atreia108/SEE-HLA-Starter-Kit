@@ -30,7 +30,14 @@ import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAunicodeChar;
 
+/**
+ * Coder implementation for the HLAunicodeChar data type.
+ *
+ * @see HLAunicodeChar
+ * @since 1.0
+ */
 public final class HLAunicodeCharCoder implements Coder<Short> {
+
     private final HLAunicodeChar char16Type;
 
     public HLAunicodeCharCoder(EncoderFactory encoderFactory) {

@@ -30,6 +30,12 @@ import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAASCIIchar;
 
+/**
+ * Coder implementation for the HLAASCIIcharCoder data type.
+ *
+ * @see HLAASCIIchar
+ * @since 1.0
+ */
 public final class HLAASCIIcharCoder implements Coder<Byte> {
 
     private final HLAASCIIchar charType;

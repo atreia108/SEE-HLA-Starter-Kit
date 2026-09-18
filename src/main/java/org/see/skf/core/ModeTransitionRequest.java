@@ -31,7 +31,9 @@ import org.see.skf.core.annotations.Parameter;
 import org.see.skf.encoding.MTRModeCoder;
 
 /**
- * Representation of the ModeTransitionRequest interaction class in the SpaceFOM.
+ * The ModeTransitionRequest (MTR) interaction is used by participating federates, that are not the Master Federate, to
+ * request a federation execution mode transition. An MTR can be sent at anytime during the initialization or execution
+ * but only certain MTR requests are valid at certain times. An instance of this class can be used to request a federation-wide mode transition.
  *
  * @since 1.5
  */
@@ -52,47 +54,5 @@ public final class ModeTransitionRequest {
 
     public void setExecutionMode(MTRMode executionMode) {
         this.executionMode = executionMode;
-    }
-
-    /**
-     * The run mode that can be requested by a federate other than the Master federate. There are only 3 valid Mode Transition Request (MTR) mode values: MTR_GOTO_RUN, MTR_GOTO_FREEZE, MTR_GOTO_SHUTDOWN.
-     * Of these three valid mode requests, only 7 combinations of current execution mode and requested mode are valid:
-     * <ol>
-     *     <li>EXEC_MODE_UNINITIALIZED -&gt; EXEC_MODE_SHUTDOWN</li>
-     *     <li>EXEC_MODE_INITIALIZED -&gt; EXEC_MODE_FREEZE</li>
-     *     <li>EXEC_MODE_INITIALIZED -&gt; EXEC_MODE_SHUTDOWN</li>
-     *     <li>EXEC_MODE_RUNNING -&gt; EXEC_MODE_FREEZE</li>
-     *     <li>EXEC_MODE_RUNNING -&gt; EXEC_MODE_SHUTDOWN</li>
-     *     <li>EXEC_MODE_FREEZE -&gt; EXEC_MODE_RUNNING</li>
-     *     <li>EXEC_MODE_FREEZE -&gt; EXEC_MODE_SHUTDOWN</li>
-     * </ol>
-     *
-     * @since 1.5
-     */
-    public enum MTRMode {
-        MTR_UNDESIGNATED((short) -1),
-        MTR_GOTO_RUN((short) 2),
-        MTR_GOTO_FREEZE((short) 3),
-        MTR_GOTO_SHUTDOWN((short) 4);
-
-        private final short value;
-
-        MTRMode(short value) {
-            this.value = value;
-        }
-
-        public static MTRMode query(short value) {
-            for (MTRMode  mode : MTRMode.values()) {
-                if (mode.value == value) {
-                    return mode;
-                }
-            }
-
-            return null;
-        }
-
-        public short getValue() {
-            return this.value;
-        }
     }
 }

@@ -27,7 +27,7 @@
 package org.see.skf.internal.executive;
 
 import org.see.skf.core.ExecutionMode;
-import org.see.skf.core.SKFederateBase;
+import org.see.skf.core.SKAbstractFederate;
 import org.see.skf.core.SyncPointListener;
 import org.see.skf.internal.SRFOMSynchronizationPoint;
 
@@ -35,9 +35,9 @@ import java.util.concurrent.CountDownLatch;
 
 public final class FreezeState implements TransitiveState {
 
-    private final SKFederateBase federate;
+    private final SKAbstractFederate federate;
 
-    public FreezeState(SKFederateBase federate) {
+    public FreezeState(SKAbstractFederate federate) {
         this.federate = federate;
     }
 

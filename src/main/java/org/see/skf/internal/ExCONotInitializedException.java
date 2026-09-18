@@ -24,10 +24,20 @@
  If not, see http://http://www.gnu.org/licenses/
  *****************************************************************/
 
-package org.see.skf.core;
+package org.see.skf.internal;
 
+/**
+ * Unchecked exception thrown when a federate cannot proceed beyond initialization because the ExCO object instance
+ * was not found in time.
+ *
+ * @since 2.0
+ */
 public final class ExCONotInitializedException extends RuntimeException {
 
+    /**
+     * Constructs an instance of this class.
+     * @param message the detail message
+     */
     public ExCONotInitializedException(String message) {
         super(message);
     }

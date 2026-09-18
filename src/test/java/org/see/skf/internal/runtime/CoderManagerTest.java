@@ -24,10 +24,12 @@
  If not, see http://http://www.gnu.org/licenses/
  *****************************************************************/
 
-package org.see.skf.encoding;
+package org.see.skf.internal.runtime;
 
 import org.junit.jupiter.api.Test;
-import org.see.skf.internal.runtime.CoderManager;
+import org.see.skf.encoding.Coder;
+import org.see.skf.encoding.HLAbooleanCoder;
+import org.see.skf.encoding.HLAunicodeStringCoder;
 
 import java.lang.reflect.Method;
 

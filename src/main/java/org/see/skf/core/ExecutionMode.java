@@ -26,6 +26,12 @@
 
 package org.see.skf.core;
 
+/**
+ * Defines the current running state of the federation execution in terms of a finite set of states expressed in the
+ * ExecutionMode enumeration.
+ *
+ * @since 1.0
+ */
 public enum ExecutionMode {
     EXEC_MODE_UNDESIGNATED((short) -1),
     EXEC_MODE_UNINITIALIZED((short) 0),

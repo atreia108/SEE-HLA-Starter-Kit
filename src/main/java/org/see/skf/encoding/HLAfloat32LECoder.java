@@ -30,6 +30,12 @@ import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAfloat32LE;
 
+/**
+ * Coder implementation for the HLAfloat32LE data type.
+ *
+ * @see HLAfloat32LE
+ * @since 1.0
+ */
 public class HLAfloat32LECoder implements Coder<Float> {
 
     private final HLAfloat32LE float32Type;

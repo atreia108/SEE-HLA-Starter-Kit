@@ -39,6 +39,10 @@ import org.see.skf.internal.runtime.HLAObjectManager;
 
 import java.util.concurrent.ExecutorService;
 
+/**
+ *
+ * @since 2.1
+ */
 final class SKFederateAmbassador extends NullFederateAmbassador {
 
     private final FederateMapping federateMapping;

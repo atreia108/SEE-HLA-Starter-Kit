@@ -28,7 +28,8 @@ package org.see.skf.internal.executive;
 
 import hla.rti1516_2025.exceptions.*;
 import org.see.skf.core.*;
-import org.see.skf.core.ExCONotInitializedException;
+import org.see.skf.internal.ExCONotInitializedException;
+import org.see.skf.core.ExecutionMode;
 import org.see.skf.internal.SRFOMSynchronizationPoint;
 import org.see.skf.internal.TimeManager;
 import org.slf4j.Logger;
@@ -38,7 +39,7 @@ public final class ExecutiveStateManager {
 
     private static final Logger logger = LoggerFactory.getLogger(ExecutiveStateManager.class);
 
-    private final SKFederateBase federate;
+    private final SKAbstractFederate federate;
     private final TransitiveState runState;
     private final TransitiveState freezeState;
 
@@ -47,7 +48,7 @@ public final class ExecutiveStateManager {
     private volatile ExecutionMode localExecutionMode;
     private volatile ExecutionMode nextExecutionMode;
 
-    public ExecutiveStateManager(SKFederateBase federate, TimeManager timeManager) {
+    public ExecutiveStateManager(SKAbstractFederate federate, TimeManager timeManager) {
         this.federate = federate;
         this.timeManager = timeManager;
         this.runState = new RunState(federate, timeManager);
@@ -58,7 +59,7 @@ public final class ExecutiveStateManager {
 
     private void init() {
         // Perfectly safe cast because we properly vet the existence and type for the ExCO object instance early on.
-        ExecutionConfiguration exCO = (ExecutionConfiguration) this.federate.queryRemoteObjectInstance("ExCO");
+        ExecutionConfiguration exCO = (ExecutionConfiguration) this.federate.queryObjectInstance("ExCO");
 
         if (exCO == null) {
             throw new ExCONotInitializedException("Cannot proceed with federate execution because ExCO attribute values were not properly initialized.");

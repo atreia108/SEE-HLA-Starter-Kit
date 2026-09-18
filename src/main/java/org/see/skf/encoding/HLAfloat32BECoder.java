@@ -28,14 +28,20 @@ package org.see.skf.encoding;
 
 import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
-import hla.rti1516_2025.encoding.HLAfloat32LE;
+import hla.rti1516_2025.encoding.HLAfloat32BE;
 
+/**
+ * Coder implementation for the HLAfloat32BE data type.
+ *
+ * @see HLAfloat32BE
+ * @since 1.0
+ */
 public final class HLAfloat32BECoder implements Coder<Float> {
 
-    private final HLAfloat32LE float32Type;
+    private final HLAfloat32BE float32Type;
 
     public HLAfloat32BECoder(EncoderFactory encoderFactory) {
-        this.float32Type = encoderFactory.createHLAfloat32LE();
+        this.float32Type = encoderFactory.createHLAfloat32BE();
     }
 
     @Override

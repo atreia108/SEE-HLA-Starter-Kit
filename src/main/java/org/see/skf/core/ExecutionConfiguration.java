@@ -28,11 +28,15 @@ package org.see.skf.core;
 
 import org.see.skf.core.annotations.Attribute;
 import org.see.skf.core.annotations.ObjectClass;
-import org.see.skf.encoding.ExecutionModeCoder;
-import org.see.skf.encoding.HLAfloat64LECoder;
-import org.see.skf.encoding.HLAinteger64BECoder;
-import org.see.skf.encoding.HLAunicodeStringCoder;
+import org.see.skf.encoding.*;
 
+/**
+ * The Execution Configuration defines the base set of parameters necessary to coordinate federation and federate execution time lines
+ * and execution mode transitions in a SISO Space Reference FOM compliant federation execution. An instance of this class is used to
+ * represent the ExCO object instance created by the SpaceMaster federate.
+ *
+ * @since 1.0
+ */
 @ObjectClass(name = "HLAobjectRoot.ExecutionConfiguration")
 public final class ExecutionConfiguration {
 

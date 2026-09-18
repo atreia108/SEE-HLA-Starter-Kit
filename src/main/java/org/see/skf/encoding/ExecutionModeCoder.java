@@ -31,6 +31,12 @@ import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAinteger16LE;
 import org.see.skf.core.ExecutionMode;
 
+/**
+ * Coder implementation for the ExecutionMode data type.
+ *
+ * @see ExecutionMode
+ * @since 1.0
+ */
 public final class ExecutionModeCoder implements Coder<ExecutionMode> {
 
     private final HLAinteger16LE executionModeType;

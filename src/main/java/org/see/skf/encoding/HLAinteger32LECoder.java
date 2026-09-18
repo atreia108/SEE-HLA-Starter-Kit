@@ -28,14 +28,20 @@ package org.see.skf.encoding;
 
 import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
-import hla.rti1516_2025.encoding.HLAinteger32BE;
+import hla.rti1516_2025.encoding.HLAinteger32LE;
 
+/**
+ * Coder implementation for the HLAinteger32LE data type.
+ *
+ * @see HLAinteger32LE
+ * @since 1.0
+ */
 public final class HLAinteger32LECoder implements Coder<Integer> {
 
-    private final HLAinteger32BE int32Type;
+    private final HLAinteger32LE int32Type;
 
     public HLAinteger32LECoder(EncoderFactory encoderFactory) {
-        this.int32Type = encoderFactory.createHLAinteger32BE();
+        this.int32Type = encoderFactory.createHLAinteger32LE();
     }
 
     @Override

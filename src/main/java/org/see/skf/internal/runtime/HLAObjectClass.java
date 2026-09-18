@@ -111,7 +111,7 @@ final class HLAObjectClass {
         return map;
     }
 
-    void publishAttributes(String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    void publishAttributes(String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, AttributeNotDefined, ObjectClassNotDefined {
         this.attributes.clear();
 
         for (String attributeName : attributeNames) {
@@ -123,43 +123,35 @@ final class HLAObjectClass {
             }
         }
 
-        try {
-            rtiAmbassador.publishObjectClassAttributes(this.handle, this.attributes);
-        } catch (AttributeNotDefined | ObjectClassNotDefined e) {
-            throw new RuntimeException(e);
-        }
+        rtiAmbassador.publishObjectClassAttributes(this.handle, this.attributes);
 
         String loggableAttributeNames = getNamesInLoggableFormat(attributeNames);
         logger.info("Published HLA object class <{}> attributes: {}.", this.name, loggableAttributeNames);
     }
 
-    void unpublishAttributes(String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, OwnershipAcquisitionPending, NotConnected, RTIinternalError, SaveInProgress {
+    void unpublishAttributes(String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, OwnershipAcquisitionPending, NotConnected, RTIinternalError, SaveInProgress, ObjectClassNotDefined, AttributeNotDefined {
         this.attributes.clear();
 
-        try {
-            if (attributeNames.length > 1) {
-                rtiAmbassador.unpublishObjectClass(this.handle);
-            } else {
-                for (String attributeName : attributeNames) {
-                    Attribute attribute = getAttribute(a -> a.name.equals(attributeName));
+        if (attributeNames.length > 1) {
+            rtiAmbassador.unpublishObjectClass(this.handle);
+        } else {
+            for (String attributeName : attributeNames) {
+                Attribute attribute = getAttribute(a -> a.name.equals(attributeName));
 
-                    if (attribute != null && attribute.published.get()) {
-                        attribute.published.set(false);
-                        this.attributes.add(attribute.handle);
-                    }
+                if (attribute != null && attribute.published.get()) {
+                    attribute.published.set(false);
+                    this.attributes.add(attribute.handle);
                 }
-
-                rtiAmbassador.unpublishObjectClassAttributes(this.handle, this.attributes);
             }
-        }  catch (AttributeNotDefined | ObjectClassNotDefined e) {
-            throw new RuntimeException(e);
+
+            rtiAmbassador.unpublishObjectClassAttributes(this.handle, this.attributes);
         }
 
         String loggableAttributeNames = getNamesInLoggableFormat(attributeNames);
         logger.info("Unpublished HLA object class <{}> attributes: {}.", this.name, loggableAttributeNames);
     }
 
-    void subscribeAttributes(String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    void subscribeAttributes(String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, AttributeNotDefined, ObjectClassNotDefined {
         this.attributes.clear();
 
         for (String attributeName : attributeNames) {
@@ -171,36 +163,28 @@ final class HLAObjectClass {
             }
         }
 
-        try {
-            rtiAmbassador.subscribeObjectClassAttributes(this.handle, this.attributes);
-        } catch (AttributeNotDefined | ObjectClassNotDefined e) {
-            throw new RuntimeException(e);
-        }
+        rtiAmbassador.subscribeObjectClassAttributes(this.handle, this.attributes);
 
         String loggableAttributeNames = getNamesInLoggableFormat(attributeNames);
         logger.info("Subscribed HLA object class <{}> attributes: {}.", this.name, loggableAttributeNames);
     }
 
-    void unsubscribeAttributes(String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    void unsubscribeAttributes(String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, AttributeNotDefined, ObjectClassNotDefined {
         this.attributes.clear();
 
-        try {
-            if (attributeNames.length > 1) {
-                rtiAmbassador.unsubscribeObjectClass(this.handle);
-            } else {
-                for (String attributeName : attributeNames) {
-                    Attribute attribute = getAttribute(a -> a.name.equals(attributeName));
+        if (attributeNames.length > 1) {
+            rtiAmbassador.unsubscribeObjectClass(this.handle);
+        } else {
+            for (String attributeName : attributeNames) {
+                Attribute attribute = getAttribute(a -> a.name.equals(attributeName));
 
-                    if (attribute != null && attribute.subscribed.get()) {
-                        attribute.subscribed.set(false);
-                        this.attributes.add(attribute.handle);
-                    }
+                if (attribute != null && attribute.subscribed.get()) {
+                    attribute.subscribed.set(false);
+                    this.attributes.add(attribute.handle);
                 }
-
-                rtiAmbassador.unsubscribeObjectClassAttributes(this.handle, this.attributes);
             }
-        }  catch (AttributeNotDefined | ObjectClassNotDefined e) {
-            throw new RuntimeException(e);
+
+            rtiAmbassador.unsubscribeObjectClassAttributes(this.handle, this.attributes);
         }
 
         String loggableAttributeNames = getNamesInLoggableFormat(attributeNames);
@@ -252,7 +236,7 @@ final class HLAObjectClass {
         rtiAmbassador.updateAttributeValues(instanceHandle, this.attributeValues, null);
     }
 
-    void provideUpdate(ObjectInstanceHandle instanceHandle, Object proxy, AttributeHandleSet requestedAttributes) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress {
+    void provideUpdate(ObjectInstanceHandle instanceHandle, Object proxy, AttributeHandleSet requestedAttributes) throws FederateNotExecutionMember, RestoreInProgress, AttributeNotOwned, NotConnected, RTIinternalError, SaveInProgress, AttributeNotDefined, ObjectInstanceNotKnown {
         this.attributeValues.clear();
 
         for (AttributeHandle attributeHandle : requestedAttributes) {
@@ -265,11 +249,7 @@ final class HLAObjectClass {
             }
         }
 
-        try {
-            rtiAmbassador.updateAttributeValues(instanceHandle, this.attributeValues, null);
-        } catch (AttributeNotDefined | ObjectInstanceNotKnown e) {
-            throw new ObjectInstanceUpdateException("Could not update object instance <" + proxy + ">.", e);
-        }
+        rtiAmbassador.updateAttributeValues(instanceHandle, this.attributeValues, null);
     }
 
     void reflectRemoteUpdate(HLAObjectManager.ObjectInstance objectInstance, AttributeHandleValueMap attributeValues) {

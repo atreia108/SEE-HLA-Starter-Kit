@@ -44,9 +44,29 @@ import java.io.File;
 import java.util.Map;
 import java.util.concurrent.*;
 
-public abstract class SKFederateBase implements SKFederate {
+/**
+ * <p>
+ *     This class provides a skeletal implementation of the <code>SKFederate</code> interface, to minimize the effort
+ *     required to implement this interface.
+ * </p>
+ *
+ * <p>
+ *     To implement an SKF federate, the programmer needs to extend this class and call the methods corresponding to the
+ *     execution steps outlined in the SRFOM standard such as <code>connectToRti</code> and <code>joinFederationExecution</code>.
+ *     The <code>setupTimeManagement</code> should be called appropriately: it performs time management operations contingent
+ *     upon whether the federate was configured to behave as an early or late joiner. Finally, the <code>exec</code>
+ *     method should only be called once the federate is ready to begin execution.
+ * </p>
+ *
+ * <p><i>N.B. Early joiner initialization support is yet to be implemented. Only late joiner support is complete at this time.</i></p>
+ *
+ * @since 2.0
+ * @see SKFederate
+ * @see SEEAbstractFederate
+ */
+public abstract class SKAbstractFederate implements SKFederate {
 
-    private static final Logger logger = LoggerFactory.getLogger(SKFederateBase.class);
+    private static final Logger logger = LoggerFactory.getLogger(SKAbstractFederate.class);
 
     private final RtiConfiguration rtiConfiguration;
     private final RTIambassador rtiAmbassador;
@@ -68,7 +88,7 @@ public abstract class SKFederateBase implements SKFederate {
     private ExecutionConfiguration exCO;
     private final CountDownLatch exCODiscoveryLatch;
 
-    protected SKFederateBase(File configurationFile) {
+    protected SKAbstractFederate(File configurationFile) {
         this.rtiAmbassador = HLAUtilityFactory.INSTANCE.getRtiAmbassador();
 
         SKFederateConfiguration config = new FederatePropertyConfiguration(configurationFile);
@@ -108,7 +128,7 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     private void setupExCOListeners() {
-        addRemoteObjectInstanceListener("ExCO", new RemoteObjectInstanceListener() {
+        addObjectInstanceListener("ExCO", new ObjectInstanceListener() {
             @Override
             public void discovered(String producingFederateName) {
                 // Ignore.
@@ -227,20 +247,20 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
-    public final void publishObjectClass(Class<?> proxyClass, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
-        this.objectManager.publishObjectClass(proxyClass, attributeNames);
+    public final void publishObjectClass(Class<?> clazz, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress, AttributeNotDefined, ObjectClassNotDefined {
+        this.objectManager.publishObjectClass(clazz, attributeNames);
     }
 
-    public final void unpublishObjectClass(String className, String... attributes) throws FederateNotExecutionMember, RestoreInProgress, OwnershipAcquisitionPending, NotConnected, RTIinternalError, SaveInProgress {
+    public final void unpublishObjectClass(String className, String... attributes) throws FederateNotExecutionMember, RestoreInProgress, OwnershipAcquisitionPending, NotConnected, RTIinternalError, SaveInProgress, ObjectClassNotDefined, AttributeNotDefined {
         this.objectManager.unpublishObjectClass(className, attributes);
     }
 
     @Override
-    public final void subscribeObjectClass(Class<?> proxyClass, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress {
-        this.objectManager.subscribeObjectClass(proxyClass, attributeNames);
+    public final void subscribeObjectClass(Class<?> clazz, String... attributeNames) throws FederateNotExecutionMember, NotConnected, RTIinternalError, RestoreInProgress, SaveInProgress, AttributeNotDefined, ObjectClassNotDefined {
+        this.objectManager.subscribeObjectClass(clazz, attributeNames);
     }
 
-    public final void unsubscribeObjectClass(String className, String... attributes) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    public final void unsubscribeObjectClass(String className, String... attributes) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress, AttributeNotDefined, ObjectClassNotDefined {
         this.objectManager.unsubscribeObjectClass(className, attributes);
     }
 
@@ -265,27 +285,27 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
-    public final boolean isRemoteObjectInstanceDiscovered(String name) {
+    public final boolean isObjectInstanceDiscovered(String name) {
         return this.objectManager.isRemoteObjectInstanceDiscovered(name);
     }
 
     @Override
-    public final Object queryRemoteObjectInstance(String name) {
+    public final Object queryObjectInstance(String name) {
         return this.objectManager.queryObjectInstance(name);
     }
 
     @Override
-    public final void requestRemoteObjectInstanceUpdates(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+    public final void requestObjectInstanceUpdates(String name, String... attributeNames) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
         this.objectManager.requestRemoteObjectInstanceUpdates(name, attributeNames);
     }
 
     @Override
-    public final void addRemoteObjectInstanceListener(String objectInstanceName, RemoteObjectInstanceListener listener) {
+    public final void addObjectInstanceListener(String objectInstanceName, ObjectInstanceListener listener) {
         this.objectManager.addObjectInstanceListener(objectInstanceName, listener);
     }
 
     @Override
-    public final void removeRemoteObjectInstanceListener(RemoteObjectInstanceListener listener) {
+    public final void removeObjectInstanceListener(ObjectInstanceListener listener) {
         this.objectManager.removeObjectInstanceListener(listener);
     }
 
@@ -310,8 +330,8 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
-    public final void publishInteractionClass(Class<?> proxyClass) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
-        this.interactionManager.publishInteractionClass(proxyClass);
+    public final void publishInteractionClass(Class<?> clazz) throws FederateNotExecutionMember, RestoreInProgress, NotConnected, RTIinternalError, SaveInProgress {
+        this.interactionManager.publishInteractionClass(clazz);
     }
 
     @Override
@@ -320,8 +340,8 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
-    public final void subscribeInteractionClass(Class<?> proxyClass) throws FederateNotExecutionMember, RestoreInProgress, FederateServiceInvocationsAreBeingReportedViaMOM, NotConnected, RTIinternalError, SaveInProgress {
-        this.interactionManager.subscribeInteractionClass(proxyClass);
+    public final void subscribeInteractionClass(Class<?> clazz) throws FederateNotExecutionMember, RestoreInProgress, FederateServiceInvocationsAreBeingReportedViaMOM, NotConnected, RTIinternalError, SaveInProgress {
+        this.interactionManager.subscribeInteractionClass(clazz);
     }
 
     @Override
@@ -395,11 +415,6 @@ public abstract class SKFederateBase implements SKFederate {
     }
 
     @Override
-    public final String getType() {
-        return this.federateType;
-    }
-
-    @Override
     public final synchronized double getSimulationTime() {
         return this.timeManager.getSimulationScenarioTime();
     }
@@ -440,12 +455,24 @@ public abstract class SKFederateBase implements SKFederate {
         // TODO - Early joiner initialization sequence to be added at a later date.
     }
 
+    /**
+     * Begins executing the federate. This is a blocking action that will only unblock once the federate is slated
+     * for termination.
+     */
     protected final void exec() throws RTIexception {
         logger.info("Beginning federate execution.");
         this.executiveStateManager.run();
     }
 
+    /**
+     * All jobs that need to be run during the SpaceFOM run executive mode should be carried out in this method.
+     */
     public abstract void processRunJobs() throws RTIexception;
 
+    /**
+     * Any final jobs that must execute prior to termination should be carried out in this method. Since the federate
+     * cannot time advance any further at the point this method is called, it is ill-advised to make any RTI-related
+     * calls here.
+     */
     public abstract void processShutdownJobs();
 }

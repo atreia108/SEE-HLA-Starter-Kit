@@ -30,6 +30,12 @@ import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAfloat64LE;
 
+/**
+ * Coder implementation for the HLAfloat64LE data type.
+ *
+ * @see HLAfloat64LE
+ * @since 1.0
+ */
 public final class HLAfloat64LECoder implements Coder<Double> {
 
     private final HLAfloat64LE float64Type;

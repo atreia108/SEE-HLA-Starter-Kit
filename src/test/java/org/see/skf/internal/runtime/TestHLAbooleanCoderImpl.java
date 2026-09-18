@@ -1,8 +1,9 @@
-package org.see.skf.encoding;
+package org.see.skf.internal.runtime;
 
 import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAboolean;
+import org.see.skf.encoding.Coder;
 
 public class TestHLAbooleanCoderImpl implements Coder<Boolean> {
 

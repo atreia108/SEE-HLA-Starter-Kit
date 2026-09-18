@@ -30,6 +30,12 @@ import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAinteger16LE;
 
+/**
+ * Coder implementation for the HLAfloat16LE data type.
+ *
+ * @see HLAinteger16LE
+ * @since 1.0
+ */
 public final class HLAinteger16LECoder implements Coder<Short> {
 
     private final HLAinteger16LE int16Type;

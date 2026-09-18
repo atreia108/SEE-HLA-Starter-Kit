@@ -30,6 +30,12 @@ import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAboolean;
 
+/**
+ * Coder implementation for the HLAboolean data type.
+ *
+ * @see HLAboolean
+ * @since 1.0
+ */
 public final class HLAbooleanCoder implements Coder<Boolean> {
 
     private final HLAboolean booleanType;

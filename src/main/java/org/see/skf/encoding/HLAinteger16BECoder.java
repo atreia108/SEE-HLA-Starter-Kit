@@ -30,6 +30,12 @@ import hla.rti1516_2025.encoding.DecoderException;
 import hla.rti1516_2025.encoding.EncoderFactory;
 import hla.rti1516_2025.encoding.HLAinteger16BE;
 
+/**
+ * Coder implementation for the HLAinteger16BE data type.
+ *
+ * @see HLAinteger16BE
+ * @since 1.0
+ */
 public final class HLAinteger16BECoder implements Coder<Short> {
 
     private final HLAinteger16BE int16Type;
